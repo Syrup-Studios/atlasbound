@@ -1,32 +1,43 @@
 package folk.sisby.antique_atlas.mixin;
 
 import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
-import folk.sisby.antique_atlas.AntiqueAtlas;
+import com.mojang.blaze3d.vertex.PoseStack;
 import folk.sisby.antique_atlas.gui.HandheldAtlasRenderer;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.network.AbstractClientPlayerEntity;
-import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.render.item.HeldItemRenderer;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.item.ItemStack;
-import net.minecraft.util.Hand;
+import net.syrupstudios.atlasbound.client.AtlasClientState;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.client.renderer.ItemInHandRenderer;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(HeldItemRenderer.class)
+@Mixin(ItemInHandRenderer.class)
 public class MixinHeldItemRenderer {
-	@Inject(method = "renderFirstPersonMap", at = @At("HEAD"), cancellable = true)
-	protected void renderFirstPersonAtlas(MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light, ItemStack stack, CallbackInfo ci) {
-		if (MinecraftClient.getInstance().player == null || MinecraftClient.getInstance().world == null) return;
-		if (!(AntiqueAtlas.isHandheldAtlas(stack))) return;
-		HandheldAtlasRenderer.fromContext(MinecraftClient.getInstance().player).renderHandheldAtlas(matrices, vertexConsumers, light);
+	@Inject(method = "renderMap", at = @At("HEAD"), cancellable = true)
+	protected void renderFirstPersonAtlas(PoseStack matrices, MultiBufferSource vertexConsumers, int light, ItemStack stack, CallbackInfo ci) {
+		if (Minecraft.getInstance().player == null || Minecraft.getInstance().level == null) return;
+		if (!(AtlasClientState.isSelectedAtlas(stack))) return;
+		HandheldAtlasRenderer.fromContext(Minecraft.getInstance().player).renderHandheldAtlas(matrices, vertexConsumers, light);
 		ci.cancel();
 	}
 
-	@ModifyExpressionValue(method = "renderFirstPersonItem", at = @At(value = "INVOKE", target = "Lnet/minecraft/item/ItemStack;isOf(Lnet/minecraft/item/Item;)Z", ordinal = 0))
-	protected boolean enableFirstPersonAtlasRendering(boolean original, AbstractClientPlayerEntity player, float tickDelta, float pitch, Hand hand, float swingProgress, ItemStack stack, float equipProgress, MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light) {
-		return original || AntiqueAtlas.isHandheldAtlas(stack);
+	//? if fabric {
+	@ModifyExpressionValue(method = "renderArmWithItem", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/item/ItemStack;is(Lnet/minecraft/world/item/Item;)Z", ordinal = 0))
+	protected boolean enableFirstPersonAtlasRenderingFabric(boolean original, AbstractClientPlayer player, float tickDelta, float pitch, InteractionHand hand, float swingProgress, ItemStack stack, float equipProgress, PoseStack matrices, MultiBufferSource vertexConsumers, int light) {
+		return original || AtlasClientState.isSelectedAtlas(stack);
 	}
+	//?} else {
+	/*
+	@ModifyExpressionValue(method = "renderArmWithItem", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/item/ItemStack;getItem()Lnet/minecraft/world/item/Item;", ordinal = 0))
+	protected Item enableFirstPersonAtlasRenderingNeoForge(Item original, AbstractClientPlayer player, float tickDelta, float pitch, InteractionHand hand, float swingProgress, ItemStack stack, float equipProgress, PoseStack matrices, MultiBufferSource vertexConsumers, int light) {
+		// The native map branch checks this type before it calls the shared map renderer.
+		return AtlasClientState.isSelectedAtlas(stack) ? Items.FILLED_MAP : original;
+	}
+	*///?}
 }

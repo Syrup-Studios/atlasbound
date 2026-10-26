@@ -1,7 +1,7 @@
 package folk.sisby.antique_atlas.gui;
 
 import folk.sisby.antique_atlas.MarkerTexture;
-import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.GuiGraphics;
 
 public class MarkerPreviewButton extends TexturePreviewButton<MarkerTexture> {
 	public MarkerPreviewButton(MarkerTexture markerTexture, float[] tint) {
@@ -9,7 +9,7 @@ public class MarkerPreviewButton extends TexturePreviewButton<MarkerTexture> {
 	}
 
 	@Override
-	protected void drawTexture(DrawContext context, int x, int y) {
+	protected void drawTexture(GuiGraphics context, int x, int y) {
 		getValue().drawIcon(context, x, y, tint);
 	}
 }

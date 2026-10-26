@@ -1,6 +1,6 @@
 package folk.sisby.antique_atlas.util;
 
-import net.minecraft.client.util.math.Rect2i;
+import net.minecraft.client.renderer.Rect2i;
 import org.joml.Vector2d;
 
 public class MathUtil {

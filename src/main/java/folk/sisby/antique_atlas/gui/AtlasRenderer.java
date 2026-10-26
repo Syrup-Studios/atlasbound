@@ -1,6 +1,7 @@
 package folk.sisby.antique_atlas.gui;
 
-import folk.sisby.antique_atlas.AntiqueAtlas;
+import net.syrupstudios.atlasbound.Atlasbound;
+import com.mojang.blaze3d.vertex.PoseStack;
 import folk.sisby.antique_atlas.MarkerTexture;
 import folk.sisby.antique_atlas.TileTexture;
 import folk.sisby.antique_atlas.WorldAtlasData;
@@ -13,60 +14,56 @@ import folk.sisby.antique_atlas.util.DrawBatcher;
 import folk.sisby.antique_atlas.util.DrawUtil;
 import folk.sisby.antique_atlas.util.MathUtil;
 import folk.sisby.antique_atlas.util.Rect;
-import folk.sisby.surveyor.PlayerSummary;
-import folk.sisby.surveyor.landmark.Landmark;
-import folk.sisby.surveyor.landmark.component.LandmarkComponentTypes;
-import folk.sisby.surveyor.util.RegionPos;
+import net.syrupstudios.atlasbound.map.AtlasPlayer;
+import net.syrupstudios.atlasbound.map.AtlasLandmark;
 import it.unimi.dsi.fastutil.objects.Reference2ObjectArrayMap;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.RenderLayer;
-import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.ChunkPos;
-import net.minecraft.util.math.ColorHelper;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.world.World;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BiFunction;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.FastColor;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.Level;
 
 public interface AtlasRenderer {
-	Map<Identifier, AtlasOverlay> overlays = new HashMap<>();
+	Map<ResourceLocation, AtlasOverlay> overlays = new HashMap<>();
 
-	static void registerOverlay(Identifier id, AtlasOverlay overlay) {
+	static void registerOverlay(ResourceLocation id, AtlasOverlay overlay) {
 		overlays.put(id, overlay);
 	}
 
-	Identifier BOOK = AntiqueAtlas.id("textures/gui/book.png");
-	Identifier BOOK_FULLSCREEN = AntiqueAtlas.id("book_fullscreen");
-	Identifier BOOK_FULLSCREEN_M = AntiqueAtlas.id("middle/book_fullscreen_m");
-	Identifier BOOK_FULLSCREEN_R = AntiqueAtlas.id("book_fullscreen_r");
-	Identifier BOOK_FRAME = AntiqueAtlas.id("textures/gui/book_frame.png");
-	Identifier BOOK_FRAME_FULLSCREEN = AntiqueAtlas.id("book_frame_fullscreen");
-	Identifier BOOK_FRAME_FULLSCREEN_M = AntiqueAtlas.id("middle/book_frame_fullscreen_m");
-	Identifier BOOK_FRAME_FULLSCREEN_R = AntiqueAtlas.id("book_frame_fullscreen_r");
-	Identifier BOOK_FRAME_NARROW = AntiqueAtlas.id("textures/gui/book_frame_narrow.png");
-	Identifier BOOK_FRAME_NARROW_FULLSCREEN = AntiqueAtlas.id("book_frame_narrow_fullscreen");
-	Identifier BOOK_FRAME_NARROW_FULLSCREEN_M = AntiqueAtlas.id("middle/book_frame_narrow_fullscreen_m");
-	Identifier BOOK_FRAME_NARROW_FULLSCREEN_R = AntiqueAtlas.id("book_frame_narrow_fullscreen_r");
-	Identifier PLAYER = AntiqueAtlas.id("textures/gui/player.png");
-	Identifier ERASER = AntiqueAtlas.id("textures/gui/eraser.png");
-	Identifier ICON_ADD_MARKER = AntiqueAtlas.id("textures/gui/icons/add_marker.png");
-	Identifier ICON_DELETE_MARKER = AntiqueAtlas.id("textures/gui/icons/del_marker.png");
-	Identifier ICON_SHOW_MARKERS = AntiqueAtlas.id("textures/gui/icons/show_markers.png");
-	Identifier ICON_HIDE_MARKERS = AntiqueAtlas.id("textures/gui/icons/hide_markers.png");
-	Identifier ICON_UNKNOWN = AntiqueAtlas.id("textures/gui/icons/unknown.png");
-	Text TEXT_ADD_MARKER = Text.translatable("gui.antique_atlas.addMarker");
-	Text TEXT_ADD_MARKER_HERE = Text.translatable("gui.antique_atlas.addMarkerHere");
+	ResourceLocation BOOK = Atlasbound.legacyId("textures/gui/book.png");
+	ResourceLocation BOOK_FULLSCREEN = Atlasbound.legacyId("book_fullscreen");
+	ResourceLocation BOOK_FULLSCREEN_M = Atlasbound.legacyId("middle/book_fullscreen_m");
+	ResourceLocation BOOK_FULLSCREEN_R = Atlasbound.legacyId("book_fullscreen_r");
+	ResourceLocation BOOK_FRAME = Atlasbound.legacyId("textures/gui/book_frame.png");
+	ResourceLocation BOOK_FRAME_FULLSCREEN = Atlasbound.legacyId("book_frame_fullscreen");
+	ResourceLocation BOOK_FRAME_FULLSCREEN_M = Atlasbound.legacyId("middle/book_frame_fullscreen_m");
+	ResourceLocation BOOK_FRAME_FULLSCREEN_R = Atlasbound.legacyId("book_frame_fullscreen_r");
+	ResourceLocation BOOK_FRAME_NARROW = Atlasbound.legacyId("textures/gui/book_frame_narrow.png");
+	ResourceLocation BOOK_FRAME_NARROW_FULLSCREEN = Atlasbound.legacyId("book_frame_narrow_fullscreen");
+	ResourceLocation BOOK_FRAME_NARROW_FULLSCREEN_M = Atlasbound.legacyId("middle/book_frame_narrow_fullscreen_m");
+	ResourceLocation BOOK_FRAME_NARROW_FULLSCREEN_R = Atlasbound.legacyId("book_frame_narrow_fullscreen_r");
+	ResourceLocation PLAYER = Atlasbound.legacyId("textures/gui/player.png");
+	ResourceLocation ERASER = Atlasbound.legacyId("textures/gui/eraser.png");
+	ResourceLocation ICON_ADD_MARKER = Atlasbound.legacyId("textures/gui/icons/add_marker.png");
+	ResourceLocation ICON_DELETE_MARKER = Atlasbound.legacyId("textures/gui/icons/del_marker.png");
+	ResourceLocation ICON_SHOW_MARKERS = Atlasbound.legacyId("textures/gui/icons/show_markers.png");
+	ResourceLocation ICON_HIDE_MARKERS = Atlasbound.legacyId("textures/gui/icons/hide_markers.png");
+	ResourceLocation ICON_UNKNOWN = Atlasbound.legacyId("textures/gui/icons/unknown.png");
+	Component TEXT_ADD_MARKER = Component.translatable("gui.antique_atlas.addMarker");
+	Component TEXT_ADD_MARKER_HERE = Component.translatable("gui.antique_atlas.addMarkerHere");
 
 	int DEFAULT_BOOK_WIDTH = 310;
 	int DEFAULT_BOOK_HEIGHT = 218;
@@ -84,11 +81,11 @@ public interface AtlasRenderer {
 	ScreenState.State<AtlasScreen> PLACING_MARKER = new ScreenState.ToggleState<>(s -> s.addMarkerBookmark);
 	ScreenState.State<AtlasScreen> DELETING_MARKER = new ScreenState.ToggleState<>(s -> s.deleteMarkerBookmark, s -> s.addChild(s.eraser), s -> s.removeChild(s.eraser));
 	ScreenState.State<AtlasScreen> HIDING_MARKERS = new ScreenState.ToggleState<>(s -> s.markerVisibilityBookmark, s -> {
-		s.markerVisibilityBookmark.setTitle(Text.translatable("gui.antique_atlas.showMarkers"));
+		s.markerVisibilityBookmark.setTitle(Component.translatable("gui.antique_atlas.showMarkers"));
 		s.markerVisibilityBookmark.setIconTexture(ICON_SHOW_MARKERS);
 	}, s -> {
 		s.clearTargetBookmarks(s.playerBookmark);
-		s.markerVisibilityBookmark.setTitle(Text.translatable("gui.antique_atlas.hideMarkers"));
+		s.markerVisibilityBookmark.setTitle(Component.translatable("gui.antique_atlas.hideMarkers"));
 		s.markerVisibilityBookmark.setIconTexture(ICON_HIDE_MARKERS);
 	});
 
@@ -114,7 +111,7 @@ public interface AtlasRenderer {
 
 	int mapScale();
 
-	PlayerEntity player();
+	Player player();
 
 	WorldAtlasData worldAtlasData();
 
@@ -122,7 +119,7 @@ public interface AtlasRenderer {
 
 	double guiScale();
 
-	RegistryKey<World> dim();
+	ResourceKey<Level> dim();
 
 	default int screenXToWorldX(double screenX) {
 		return screenXToWorldX(screenX, bookX(), mapOffsetX(), mapWidth(), getPixelsPerBlock());
@@ -160,19 +157,18 @@ public interface AtlasRenderer {
 		return mapY + bookY + MAP_BORDER_HEIGHT;
 	}
 
-	default void renderMarker(MatrixStack matrices, VertexConsumerProvider vertexConsumers, Landmark landmark, MarkerTexture texture, float z, int light, BiFunction<Double, Double, Float> alphaGetter, boolean pinned, boolean hovering, float markerScale) {
-		BlockPos pos = landmark.get(LandmarkComponentTypes.POS);
-		Integer color = landmark.get(LandmarkComponentTypes.COLOR);
-		float[] accent = color == null ? null : ColorUtil.componentsFromRgb(color);
+	default void renderMarker(PoseStack matrices, MultiBufferSource vertexConsumers, AtlasLandmark landmark, MarkerTexture texture, float z, int light, BiFunction<Double, Double, Float> alphaGetter, boolean pinned, boolean hovering, float markerScale) {
+		BlockPos pos = landmark.pos();
+		float[] accent = ColorUtil.componentsFromRgb(landmark.color());
 		float tint = hovering ? 0.8f : 1.0f;
 
 		if (pos == null) {
-			Set<ChunkPos> chunks = RegionPos.regionsToChunks(landmark.getOrDefault(LandmarkComponentTypes.CHUNKS, new HashMap<>()));
+			Set<ChunkPos> chunks = landmark.chunks();
 			for (ChunkPos chunk : chunks) {
-				double markerX = worldXToScreenX(chunk.getStartX()) - bookX();
-				double markerY = worldZToScreenY(chunk.getStartZ()) - bookY();
+				double markerX = worldXToScreenX(chunk.getMinBlockX()) - bookX();
+				double markerY = worldZToScreenY(chunk.getMinBlockZ()) - bookY();
 				float effectiveScale = (float) (mapScale() / guiScale());
-				matrices.push();
+				matrices.pushPose();
 				matrices.translate(markerX, markerY, 0.0);
 				matrices.scale(effectiveScale, effectiveScale, 1.0F);
 				int size = tilePixels() / tileChunks();
@@ -180,15 +176,15 @@ public interface AtlasRenderer {
 				if (size > 0) {
 					float[] fillColor = accent == null ? ColorUtil.componentsFromRgb(0xFFFFFF) : new float[] { tint * accent[0], tint * accent[1], tint * accent[2] };
 					float alpha = alphaGetter.apply(markerX, markerY);
-					DrawUtil.fill(matrices, vertexConsumers, RenderLayer.getTextBackgroundSeeThrough(), z, light, 0, 0, size, size, 0.25F * alpha, fillColor);
+					DrawUtil.fill(matrices, vertexConsumers, RenderType.textBackgroundSeeThrough(), z, light, 0, 0, size, size, 0.25F * alpha, fillColor);
 					if (lineSize > 0) {
-						if (!chunks.contains(new ChunkPos(chunk.x - 1, chunk.z))) DrawUtil.fill(matrices, vertexConsumers, RenderLayer.getTextBackgroundSeeThrough(), z, light, 0, 0, lineSize, size, 0.5F * alpha, fillColor);
-						if (!chunks.contains(new ChunkPos(chunk.x, chunk.z - 1))) DrawUtil.fill(matrices, vertexConsumers, RenderLayer.getTextBackgroundSeeThrough(), z, light, 0, 0, size, lineSize, 0.5F * alpha, fillColor);
-						if (!chunks.contains(new ChunkPos(chunk.x + 1, chunk.z))) DrawUtil.fill(matrices, vertexConsumers, RenderLayer.getTextBackgroundSeeThrough(), z, light, size - lineSize, 0, size, size, 0.5F * alpha, fillColor);
-						if (!chunks.contains(new ChunkPos(chunk.x, chunk.z + 1))) DrawUtil.fill(matrices, vertexConsumers, RenderLayer.getTextBackgroundSeeThrough(), z, light, 0, size - lineSize, size, size, 0.5F * alpha, fillColor);
+						if (!chunks.contains(new ChunkPos(chunk.x - 1, chunk.z))) DrawUtil.fill(matrices, vertexConsumers, RenderType.textBackgroundSeeThrough(), z, light, 0, 0, lineSize, size, 0.5F * alpha, fillColor);
+						if (!chunks.contains(new ChunkPos(chunk.x, chunk.z - 1))) DrawUtil.fill(matrices, vertexConsumers, RenderType.textBackgroundSeeThrough(), z, light, 0, 0, size, lineSize, 0.5F * alpha, fillColor);
+						if (!chunks.contains(new ChunkPos(chunk.x + 1, chunk.z))) DrawUtil.fill(matrices, vertexConsumers, RenderType.textBackgroundSeeThrough(), z, light, size - lineSize, 0, size, size, 0.5F * alpha, fillColor);
+						if (!chunks.contains(new ChunkPos(chunk.x, chunk.z + 1))) DrawUtil.fill(matrices, vertexConsumers, RenderType.textBackgroundSeeThrough(), z, light, 0, size - lineSize, size, size, 0.5F * alpha, fillColor);
 					}
 				}
-				matrices.pop();
+				matrices.popPose();
 			}
 			return;
 		}
@@ -197,21 +193,21 @@ public interface AtlasRenderer {
 		double markerY = worldZToScreenY(pos.getZ()) - bookY();
 
 		if (pinned) {
-			markerX = MathHelper.clamp(markerX, MAP_BORDER_WIDTH, mapWidth() + MAP_BORDER_WIDTH);
-			markerY = MathHelper.clamp(markerY, MAP_BORDER_HEIGHT, mapHeight() + MAP_BORDER_HEIGHT);
+			markerX = Mth.clamp(markerX, MAP_BORDER_WIDTH, mapWidth() + MAP_BORDER_WIDTH);
+			markerY = Mth.clamp(markerY, MAP_BORDER_HEIGHT, mapHeight() + MAP_BORDER_HEIGHT);
 		}
 
 
 		texture.draw(matrices, vertexConsumers, markerX, markerY, z, markerScale, tileChunks(), accent, tint, alphaGetter.apply(markerX, markerY), light);
 	}
 
-	default void renderPlayer(MatrixStack matrices, VertexConsumerProvider vertexConsumers, float z, int light, PlayerSummary player, float iconScale, float alpha, boolean hovering, boolean self) {
-		double dimX = player.pos().getX();
-		double dimZ = player.pos().getZ();
+	default void renderPlayer(PoseStack matrices, MultiBufferSource vertexConsumers, float z, int light, AtlasPlayer player, float iconScale, float alpha, boolean hovering, boolean self) {
+		double dimX = player.pos().x();
+		double dimZ = player.pos().z();
 
 		boolean inDim = dim().equals(player.dimension());
 		if (!inDim) {
-			Map<RegistryKey<World>, Integer> scales = AntiqueAtlas.CONFIG.dimensions.getScales(MinecraftClient.getInstance().getNetworkHandler());
+			Map<ResourceKey<Level>, Integer> scales = Atlasbound.Client.CONFIG.dimensions.getScales(Minecraft.getInstance().getConnection());
 			int newScale = scales.getOrDefault(dim(), 0);
 			int oldScale = scales.getOrDefault(player.dimension(), 0);
 			if (newScale * oldScale == 0) return; // no ratio!
@@ -223,20 +219,20 @@ public interface AtlasRenderer {
 		double playerOffsetX = worldXToScreenX(dimX) - bookX();
 		double playerOffsetY = worldZToScreenY(dimZ) - bookY();
 
-		playerOffsetX = MathHelper.clamp(playerOffsetX, MAP_BORDER_WIDTH, mapWidth() + MAP_BORDER_WIDTH);
-		playerOffsetY = MathHelper.clamp(playerOffsetY, MAP_BORDER_HEIGHT, mapHeight() + MAP_BORDER_HEIGHT);
+		playerOffsetX = Mth.clamp(playerOffsetX, MAP_BORDER_WIDTH, mapWidth() + MAP_BORDER_WIDTH);
+		playerOffsetY = Mth.clamp(playerOffsetY, MAP_BORDER_HEIGHT, mapHeight() + MAP_BORDER_HEIGHT);
 
 		// Draw the icon:
 		float tint = (player.online() ? 1 : 0.5f) * (hovering ? 0.9f : 1);
 		float greenTint = self ? 1 : 0.7f;
 		float redTint = inDim ? 1 : 0.7f;
-		int argb = ColorHelper.Argb.getArgb((int) (alpha * 255.0), (int) (tint * redTint * 255), (int) (tint * greenTint * 255), (int) (tint * 255));
+		int argb = FastColor.ARGB32.color((int) (alpha * 255.0), (int) (tint * redTint * 255), (int) (tint * greenTint * 255), (int) (tint * 255));
 		float playerRotation = ((float) Math.round(player.yaw() / 360f * PLAYER_ROTATION_STEPS) / PLAYER_ROTATION_STEPS) * 360f;
 
 		DrawUtil.drawCenteredWithRotation(matrices, vertexConsumers, PLAYER, playerOffsetX, playerOffsetY, z, iconScale, PLAYER_ICON_WIDTH, PLAYER_ICON_HEIGHT, playerRotation, light, argb);
 	}
 
-	default void renderTiles(MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light) {
+	default void renderTiles(PoseStack matrices, MultiBufferSource vertexConsumers, int light) {
 		int mapStartChunkX = MathUtil.roundToBase(screenXToWorldX(bookX()) >> 4, tileChunks()) - 2 * tileChunks();
 		int mapStartChunkZ = MathUtil.roundToBase(screenYToWorldZ(bookY()) >> 4, tileChunks()) - 2 * tileChunks();
 		int mapEndChunkX = MathUtil.roundToBase(screenXToWorldX(bookX() + bookWidth()) >> 4, tileChunks()) + 2 * tileChunks();
@@ -249,7 +245,7 @@ public interface AtlasRenderer {
 		int mapX = bookX() + MAP_BORDER_WIDTH;
 		int mapY = bookY() + MAP_BORDER_HEIGHT;
 		float effectiveScale = (float) (mapScale() / guiScale());
-		matrices.push();
+		matrices.pushPose();
 		matrices.translate(Math.round(mapStartScreenX), Math.round(mapStartScreenY), 0);
 		matrices.scale(effectiveScale, effectiveScale, 1.0F);
 
@@ -273,6 +269,6 @@ public interface AtlasRenderer {
 			}
 		});
 
-		matrices.pop();
+		matrices.popPose();
 	}
 }

@@ -1,23 +1,22 @@
 package folk.sisby.antique_atlas.gui;
 
-import folk.sisby.antique_atlas.AntiqueAtlas;
+import net.syrupstudios.atlasbound.Atlasbound;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.math.Axis;
 import folk.sisby.antique_atlas.WorldAtlasData;
 import folk.sisby.antique_atlas.util.DrawBatcher;
 import folk.sisby.antique_atlas.util.MathUtil;
-import folk.sisby.surveyor.client.SurveyorClient;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.render.VertexConsumerProvider;
-import net.minecraft.client.util.math.MatrixStack;
-import net.minecraft.client.util.math.Rect2i;
-import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.RotationAxis;
-import net.minecraft.world.World;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.Rect2i;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.util.Mth;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.Level;
 import org.joml.Vector2d;
 
-public record HandheldAtlasRenderer(int bookX, int bookY, int bookWidth, int bookHeight, int mapWidth, int mapHeight, int tilePixels, int tileChunks, double guiScale, double mapOffsetX, double mapOffsetY, int mapScale, PlayerEntity player, WorldAtlasData worldAtlasData, RegistryKey<World> dim) implements AtlasRenderer {
-	public static HandheldAtlasRenderer fromContext(PlayerEntity player) {
+public record HandheldAtlasRenderer(int bookX, int bookY, int bookWidth, int bookHeight, int mapWidth, int mapHeight, int tilePixels, int tileChunks, double guiScale, double mapOffsetX, double mapOffsetY, int mapScale, Player player, WorldAtlasData worldAtlasData, ResourceKey<Level> dim) implements AtlasRenderer {
+	public static HandheldAtlasRenderer fromContext(Player player) {
 		return new HandheldAtlasRenderer(
 			0,
 			0,
@@ -32,36 +31,36 @@ public record HandheldAtlasRenderer(int bookX, int bookY, int bookWidth, int boo
 			-player.getBlockZ(),
 			1,
 			player,
-			WorldAtlasData.getOrCreate(player.getWorld().getRegistryKey()),
-			player.getWorld().getRegistryKey()
+			WorldAtlasData.getOrCreate(player.level().dimension()),
+			player.level().dimension()
 		);
 	}
 
-	public void renderHandheldAtlas(MatrixStack matrices, VertexConsumerProvider vertexConsumers, int light) {
-		matrices.push();
-		matrices.multiply(RotationAxis.POSITIVE_Y.rotationDegrees(180.0F));
-		matrices.multiply(RotationAxis.POSITIVE_Z.rotationDegrees(180.0F));
+	public void renderHandheldAtlas(PoseStack matrices, MultiBufferSource vertexConsumers, int light) {
+		matrices.pushPose();
+		matrices.mulPose(Axis.YP.rotationDegrees(180.0F));
+		matrices.mulPose(Axis.ZP.rotationDegrees(180.0F));
 		matrices.scale(0.38F * 142.0F / 218.0F, 0.38F * 142.0F / 218.0F, 0.38F);
 		matrices.translate(-1.2D, -0.88D, 0D);
 		matrices.scale(1.0F / 128.0F, 1.0F / 128.0F, 1.0F / 128.0F);
 
 		DrawBatcher.drawSingle(matrices, vertexConsumers, AtlasScreen.BOOK, bookWidth, bookHeight, light, bookX, bookY, 0.01F, bookWidth, bookHeight, 0, 0, bookWidth, bookHeight, 0xFFFFFFFF, false);
 
-		if (!(MinecraftClient.getInstance().currentScreen instanceof AtlasScreen)) {
+		if (!(Minecraft.getInstance().screen instanceof AtlasScreen)) {
 			renderTiles(matrices, vertexConsumers, light);
 
-			overlays.keySet().forEach(id -> overlays.get(id).onRender(new AtlasOverlay.AtlasRenderContext(this, matrices, vertexConsumers, null, null, light, 1.0F, AntiqueAtlas.getOrderedFriends())));
+			overlays.keySet().forEach(id -> overlays.get(id).onRender(new AtlasOverlay.AtlasRenderContext(this, matrices, vertexConsumers, null, null, light, 1.0F, Atlasbound.Client.getVisiblePlayers())));
 
 			Rect2i mapArea = new Rect2i(bookX + MAP_BORDER_WIDTH, bookY + MAP_BORDER_HEIGHT, mapWidth, mapHeight);
 
-			worldAtlasData.getAllMarkers(tileChunks).forEach((landmark, texture) -> renderMarker(matrices, vertexConsumers, landmark, texture, -0.02F, light, (x, y) -> (float) MathHelper.clamp(MathUtil.innerDistanceToEdge(mapArea, new Vector2d(x, y)) / 32.0, 0, 1), false, false, 1));
+			worldAtlasData.getAllMarkers(tileChunks).forEach((landmark, texture) -> renderMarker(matrices, vertexConsumers, landmark, texture, -0.02F, light, (x, y) -> (float) Mth.clamp(MathUtil.innerDistanceToEdge(mapArea, new Vector2d(x, y)) / 32.0, 0, 1), false, false, 1));
 
-			AntiqueAtlas.getOrderedFriends().forEach((uuid, friend) -> renderPlayer(matrices, vertexConsumers, -0.04F, light, friend, 1, 1, false, uuid.equals(SurveyorClient.getClientUuid())));
+			Atlasbound.Client.getVisiblePlayers().forEach((uuid, friend) -> renderPlayer(matrices, vertexConsumers, -0.04F, light, friend, 1, 1, false, uuid.equals(Minecraft.getInstance().player.getUUID())));
 
 			DrawBatcher.drawSingle(matrices, vertexConsumers, BOOK_FRAME, bookWidth, bookHeight, light, bookX, bookY, -0.03F, bookWidth, bookHeight, 0, 0, bookWidth, bookHeight, 0xFFFFFFFF, true);
 		}
 
-		matrices.pop();
+		matrices.popPose();
 	}
 
 	@Override

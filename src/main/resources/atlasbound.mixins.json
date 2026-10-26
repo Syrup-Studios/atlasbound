@@ -1,0 +1,18 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "net.syrupstudios.atlasbound.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "AtlasItemUseMixin",
+    "CartographyTableMixin",
+    "AtlasListPoolElementAccessor",
+    "AtlasSinglePoolElementAccessor",
+    "AtlasFeaturePoolElementAccessor",
+    "AtlasPoolElementPieceAccessor",
+    "AtlasChunkStorageAccessor"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

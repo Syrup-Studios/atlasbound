@@ -1,216 +1,188 @@
 package folk.sisby.antique_atlas;
 
-import com.google.common.collect.Multimap;
+import net.syrupstudios.atlasbound.Atlasbound;
+import net.syrupstudios.atlasbound.AtlasboundConfig;
 import folk.sisby.antique_atlas.gui.AtlasScreen;
 import folk.sisby.antique_atlas.reloader.BiomeTileProviders;
 import folk.sisby.antique_atlas.reloader.MarkerTextures;
 import folk.sisby.antique_atlas.reloader.StructureTileProviders;
 import folk.sisby.antique_atlas.reloader.TileTextures;
 import folk.sisby.antique_atlas.util.Rect;
-import folk.sisby.surveyor.WorldSummary;
-import folk.sisby.surveyor.client.SurveyorClient;
-import folk.sisby.surveyor.landmark.Landmark;
-import folk.sisby.surveyor.landmark.WorldLandmarks;
-import folk.sisby.surveyor.landmark.component.LandmarkComponentMap;
-import folk.sisby.surveyor.landmark.component.LandmarkComponentTypes;
-import folk.sisby.surveyor.util.RegionPos;
 import it.unimi.dsi.fastutil.Pair;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.registry.DynamicRegistryManager;
-import net.minecraft.registry.RegistryKey;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
-import net.minecraft.util.DyeColor;
-import net.minecraft.util.Formatting;
-import net.minecraft.util.Identifier;
-import net.minecraft.util.math.ChunkPos;
-import net.minecraft.world.World;
-import net.minecraft.world.gen.structure.Structure;
-
-import java.util.BitSet;
-import java.util.Deque;
+import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedDeque;
-import java.util.function.Consumer;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.Registry;
+import net.minecraft.core.RegistryAccess;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.biome.Biome;
+import net.syrupstudios.atlasbound.client.AtlasClientState;
+import net.syrupstudios.atlasbound.map.AtlasLandmark;
+import net.syrupstudios.atlasbound.map.AtlasStructureStart;
+import net.syrupstudios.atlasbound.map.AtlasTerrainChunk;
 
+/** The tile and marker data shown for one selected atlas dimension. */
 public class WorldAtlasData {
-	public static final Map<RegistryKey<World>, WorldAtlasData> WORLDS = new HashMap<>();
+	public static final Map<ResourceKey<Level>, WorldAtlasData> WORLDS = new HashMap<>();
 
-	public static WorldAtlasData getOrCreate(RegistryKey<World> dimension) {
-		return WORLDS.computeIfAbsent(dimension, k -> new WorldAtlasData());
+	public static WorldAtlasData getOrCreate(ResourceKey<Level> dimension) {
+		return AtlasClientState.view(dimension);
 	}
 
-	public static boolean isEmpty(RegistryKey<World> dimension) {
+	public static boolean isEmpty(ResourceKey<Level> dimension) {
 		return !WORLDS.containsKey(dimension) || WORLDS.get(dimension).isEmpty();
 	}
 
+	protected ResourceKey<Level> dimension;
 	protected final Map<ChunkPos, TileTexture> biomeTiles = new HashMap<>();
 	protected final Map<ChunkPos, TileTexture> structureTiles = new HashMap<>();
-	protected final Map<UUID, Map<Identifier, Pair<Landmark, MarkerTexture>>> landmarkMarkers = new ConcurrentHashMap<>();
-	protected final Map<Landmark, MarkerTexture> structureMarkers = new ConcurrentHashMap<>();
-
+	protected final Map<UUID, Map<ResourceLocation, Pair<AtlasLandmark, MarkerTexture>>> landmarkMarkers = new HashMap<>();
+	protected final Map<AtlasLandmark, MarkerTexture> structureMarkers = new HashMap<>();
 	protected final Rect tileScope = new Rect(0, 0, 0, 0);
 	protected final Set<ChunkPos> terrainDequeHash = new HashSet<>();
-	protected final Deque<ChunkPos> terrainDeque = new ConcurrentLinkedDeque<>();
-	protected boolean isFinished = false;
-
-	// Debug Display Info
+	protected final ArrayDeque<ChunkPos> terrainDeque = new ArrayDeque<>();
 	protected final Map<ChunkPos, String> debugBiomePredicates = new HashMap<>();
 	protected final Map<ChunkPos, String> debugStructurePredicates = new HashMap<>();
 	protected final Map<ChunkPos, TerrainTileProvider> debugBiomes = new HashMap<>();
 	protected final Map<ChunkPos, StructureTileProvider> debugStructures = new HashMap<>();
+	protected final Map<ChunkPos, AtlasTerrainChunk> terrainSnapshots = new HashMap<>();
+	protected final Map<StructureSnapshotKey, AtlasStructureStart> structureSnapshots = new LinkedHashMap<>();
+	private record StructureSnapshotKey(ChunkPos chunk, ResourceLocation key) {}
 
+	public WorldAtlasData() {}
+
+	protected WorldAtlasData(ResourceKey<Level> dimension) { this.dimension = dimension; }
+
+	public void setDimension(ResourceKey<Level> dimension) { this.dimension = dimension; }
 
 	private boolean isEmpty() {
 		return tileScope.maxY == tileScope.minY && terrainDequeHash.isEmpty();
 	}
 
-	public void onTerrainUpdated(WorldSummary summary, Map<RegionPos, BitSet> chunks) {
-		for (ChunkPos pos : RegionPos.regionsToChunks(chunks)) {
-			if (!biomeTiles.containsKey(pos) && !terrainDequeHash.contains(pos)) {
-				terrainDequeHash.add(pos);
-				terrainDeque.add(pos);
-			}
-		}
+	/** Accept raw terrain captured from a loaded or saved chunk. */
+	public void acceptTerrain(AtlasTerrainChunk chunk, RegistryAccess registries) {
+		if (chunk == null || registries == null) return;
+		terrainSnapshots.put(chunk.pos(), chunk);
+		if (!biomeTiles.containsKey(chunk.pos()) && terrainDequeHash.add(chunk.pos())) terrainDeque.addLast(chunk.pos());
 	}
 
-	public void onStructuresAdded(WorldSummary summary, Multimap<RegistryKey<Structure>, ChunkPos> starts) {
-		starts.forEach((key, pos) -> StructureTileProviders.getInstance().resolve(structureTiles, debugStructures, debugStructurePredicates, structureMarkers, summary, key, pos, summary.structures().get(key, pos), summary.structures().getType(key), summary.structures().getTags(key)));
+	/** Accept a structure start captured from a loaded or saved chunk. */
+	public void acceptStructure(AtlasStructureStart structure, RegistryAccess registries) {
+		if (structure == null || registries == null) return;
+		structureSnapshots.put(new StructureSnapshotKey(structure.chunk(), structure.key()), structure);
+		StructureTileProviders.getInstance().resolve(structureTiles, debugStructures, debugStructurePredicates,
+				structureMarkers, structure, registries);
 	}
 
-	public void tick(WorldSummary summary) {
-		if (!BiomeTileProviders.getInstance().hasFallbacks()) return;
-		DynamicRegistryManager manager = MinecraftClient.getInstance().getNetworkHandler().getRegistryManager();
-		for (int i = 0; i < AntiqueAtlas.CONFIG.chunkTickLimit; i++) {
+	/** Build a bounded number of queued tiles on the client thread. */
+	public void tick(RegistryAccess registries) {
+		if (registries == null || dimension == null) return;
+		Registry<Biome> biomes = registries.registryOrThrow(Registries.BIOME);
+		if (!BiomeTileProviders.getInstance().hasFallbacks()) BiomeTileProviders.getInstance().registerFallbacks(biomes);
+		for (int i = 0; i < Atlasbound.Client.CONFIG.chunkTickLimit.get(); i++) {
 			ChunkPos pos = terrainDeque.pollFirst();
-			terrainDequeHash.remove(pos);
 			if (pos == null) break;
-			Pair<TerrainTileProvider, TileElevation> tile = summary.dimension() == World.NETHER ? TerrainTiling.terrainToTileNether(summary, pos) : TerrainTiling.terrainToTile(summary, pos);
-			if (tile != null) {
-				tileScope.extendTo(pos.x, pos.z);
-				biomeTiles.put(pos, tile.left().getTexture(pos, tile.right()));
-				debugBiomes.put(pos, tile.left());
-				debugBiomePredicates.put(pos, tile.right() == null ? null : tile.right().getName());
-			}
-		}
-		if (!isFinished && terrainDeque.isEmpty()) {
-			isFinished = true;
-			AntiqueAtlas.LOGGER.info("[Antique Atlas] Finished loading terrain for {} - {} tiles.", summary.dimension(), biomeTiles.size());
+			terrainDequeHash.remove(pos);
+			AtlasTerrainChunk terrain = terrainSnapshots.get(pos);
+			if (terrain == null) continue;
+			Pair<TerrainTileProvider, TileElevation> tile = TerrainTiling.terrainToTile(terrain, registries, dimension);
+			if (tile == null) continue;
+			tileScope.extendTo(pos.x, pos.z);
+			biomeTiles.put(pos, tile.left().getTexture(pos, tile.right()));
+			debugBiomes.put(pos, tile.left());
+			debugBiomePredicates.put(pos, tile.right() == null ? null : tile.right().getName());
 		}
 	}
 
-	public Rect getScope() {
-		return tileScope;
+	/** Rebuild rendered tiles after resource providers change, using the accepted raw snapshots. */
+	public void rebuildTiles(RegistryAccess registries) {
+		biomeTiles.clear();
+		structureTiles.clear();
+		debugBiomePredicates.clear();
+		debugStructurePredicates.clear();
+		debugBiomes.clear();
+		debugStructures.clear();
+		structureMarkers.clear();
+		tileScope.set(0, 0, 0, 0);
+		terrainDeque.clear();
+		terrainDequeHash.clear();
+		terrainSnapshots.keySet().stream().sorted((a, b) -> {
+			int x = Integer.compare(a.x, b.x);
+			return x == 0 ? Integer.compare(a.z, b.z) : x;
+		}).forEach(pos -> {
+			terrainDeque.addLast(pos);
+			terrainDequeHash.add(pos);
+		});
+		structureSnapshots.values().forEach(start -> StructureTileProviders.getInstance().resolve(
+				structureTiles, debugStructures, debugStructurePredicates, structureMarkers, start, registries));
 	}
 
-	public TileTexture getTile(int x, int z) {
-		return getTile(new ChunkPos(x, z));
-	}
+	public Rect getScope() { return tileScope; }
+
+	public TileTexture getTile(int x, int z) { return getTile(new ChunkPos(x, z)); }
 
 	public TileTexture getTile(ChunkPos pos) {
-		if (!biomeTiles.containsKey(pos)) return AntiqueAtlas.CONFIG.emptyHandling == AntiqueAtlasConfig.EmptyHandling.CLOUDS ? TileTextures.getInstance().getTextures().get(AntiqueAtlas.id("clouds")) : null;
+		if (!biomeTiles.containsKey(pos)) return Atlasbound.Client.CONFIG.emptyHandling.get() == AtlasboundConfig.EmptyHandling.CLOUDS
+				? TileTextures.getInstance().getTextures().get(Atlasbound.legacyId("clouds")) : null;
 		return structureTiles.getOrDefault(pos, biomeTiles.get(pos));
 	}
 
-	public Identifier getProvider(ChunkPos pos) {
-		if (structureTiles.containsKey(pos)) {
-			return debugStructures.get(pos).id();
-		} else {
-			return debugBiomes.containsKey(pos) ? debugBiomes.get(pos).id() : null;
-		}
+	public ResourceLocation getProvider(ChunkPos pos) {
+		if (structureTiles.containsKey(pos)) return debugStructures.get(pos).id();
+		return debugBiomes.containsKey(pos) ? debugBiomes.get(pos).id() : null;
 	}
 
 	public String getTilePredicate(ChunkPos pos) {
-		if (structureTiles.containsKey(pos)) {
-			return debugStructurePredicates.get(pos);
-		} else {
-			return debugBiomePredicates.get(pos);
-		}
+		return structureTiles.containsKey(pos) ? debugStructurePredicates.get(pos) : debugBiomePredicates.get(pos);
 	}
 
-	public void addLandmarkMarker(Landmark landmark, MarkerTexture texture) {
-		landmarkMarkers.computeIfAbsent(landmark.owner(), t -> new ConcurrentHashMap<>()).put(landmark.id(), Pair.of(landmark, texture));
-	}
-
-	public static Landmark copyLandmarkWith(Landmark landmark, Identifier id, Consumer<LandmarkComponentMap> modifier) {
-		LandmarkComponentMap copy = LandmarkComponentMap.builder().build();
-		landmark.components().keySet().forEach(t -> copy.set(t, landmark.components().get(t)));
-		modifier.accept(copy);
-		return new Landmark(landmark.owner(), id, copy);
-	}
-
-	public void addLandmark(Landmark landmark) {
+	public void addLandmark(AtlasLandmark landmark) {
 		if (landmark == null) return;
-		if (landmark.id().getPath().startsWith("grave")) {
-			AntiqueAtlasConfig.GraveStyle style = AntiqueAtlas.CONFIG.graveStyle;
-			Text name = landmark.get(LandmarkComponentTypes.NAME);
-			if (name == null && style == AntiqueAtlasConfig.GraveStyle.CAUSE) style = AntiqueAtlasConfig.GraveStyle.DIED;
-			MutableText timeText = Text.literal(String.valueOf(1 + (landmark.getOrDefault(LandmarkComponentTypes.TIME, 0L) / 24000L))).formatted(Formatting.WHITE);
-			String key = "gui.antique_atlas.marker.death.%s".formatted(style.toString().toLowerCase());
-			MutableText text = switch (style) {
-				case CAUSE -> Text.translatable(key, name.copy().formatted(Formatting.GRAY).formatted(Formatting.RED), timeText).formatted(Formatting.GRAY);
-				case GRAVE, ITEMS, DIED -> Text.translatable(key, Text.translatable("gui.antique_atlas.marker.death.%s.verb".formatted(style.toString().toLowerCase())).formatted(Formatting.RED), timeText).formatted(Formatting.GRAY);
-				case EUPHEMISMS -> Text.translatable(key, Text.translatable("gui.antique_atlas.marker.death.%s.verb.%s".formatted(style.toString().toLowerCase(), new Random(landmark.getOrDefault(LandmarkComponentTypes.SEED, 0)).nextInt(11))).formatted(Formatting.RED), timeText).formatted(Formatting.GRAY);
-			};
-			addLandmarkMarker(copyLandmarkWith(landmark, landmark.id(), m -> {
-				m.set(LandmarkComponentTypes.COLOR, DyeColor.GRAY.getEntityColor());
-				m.set(LandmarkComponentTypes.NAME, text);
-			}), MarkerTextures.getInstance().fromLandmark(landmark, style == AntiqueAtlasConfig.GraveStyle.ITEMS ? "items" : null));
-		} else {
-			addLandmarkMarker(landmark, MarkerTextures.getInstance().fromLandmark(landmark));
-		}
+		addLandmarkMarker(landmark, MarkerTextures.getInstance().fromLandmark(landmark));
+		if (Minecraft.getInstance().screen instanceof AtlasScreen screen) screen.updateBookmarkerList();
 	}
 
-	public void onLandmarksAdded(WorldSummary summary, Multimap<UUID, Identifier> landmarks) {
-		landmarks.forEach((type, pos) -> this.addLandmark(summary.landmarks().get(type, pos)));
-		if (MinecraftClient.getInstance().currentScreen instanceof AtlasScreen as) as.updateBookmarkerList();
+	public void addLandmarkMarker(AtlasLandmark landmark, MarkerTexture texture) {
+		landmarkMarkers.computeIfAbsent(landmark.owner(), ignored -> new HashMap<>())
+				.put(landmark.id(), Pair.of(landmark, texture));
 	}
 
-	public void onLandmarksRemoved(WorldSummary summary, Multimap<UUID, Identifier> landmarks) {
-		landmarks.forEach((type, pos) -> {
-			if (landmarkMarkers.containsKey(type)) {
-				landmarkMarkers.get(type).remove(pos);
-				if (landmarkMarkers.get(type).isEmpty()) landmarkMarkers.remove(type);
-			}
-		});
-		if (MinecraftClient.getInstance().currentScreen instanceof AtlasScreen as) as.updateBookmarkerList();
+	public boolean deleteLandmark(ResourceKey<Level> dimension, AtlasLandmark landmark) {
+		if (landmark == null || !dimension.equals(this.dimension)) return false;
+		return AtlasClientState.submitMarker(dimension.location(), landmark, null);
 	}
 
-	public boolean deleteLandmark(RegistryKey<World> dimension, Landmark landmark) {
-		WorldSummary summary = SurveyorClient.tryGetSummary(dimension);
-		if (summary == null || summary.landmarks() == null || landmark.owner().equals(WorldLandmarks.GLOBAL) || !SurveyorClient.canModify(landmark.owner())) return false;
-		summary.landmarks().remove(landmark.owner(), landmark.id());
-		return true;
+	public Map<AtlasLandmark, MarkerTexture> getEditableLandmarks() {
+		Map<AtlasLandmark, MarkerTexture> editable = new HashMap<>();
+		UUID owner = AtlasClientState.markerOwner();
+		if (owner == null) return editable;
+		landmarkMarkers.getOrDefault(owner, Map.of()).values()
+			.forEach(pair -> editable.put(pair.left(), pair.right()));
+		return editable;
 	}
 
-	public Map<Landmark, MarkerTexture> getEditableLandmarks() {
-		Map<Landmark, MarkerTexture> map = new HashMap<>();
-		landmarkMarkers.forEach((type, landmarks) -> landmarks.forEach((pos, pair) -> { // Don't allow editing global landmarks via GUI.
-			if (!pair.left().owner().equals(WorldLandmarks.GLOBAL) && SurveyorClient.canModify(pair.left().owner())) map.put(pair.left(), pair.right());
-		}));
-		return map;
-	}
-
-	public Map<Landmark, MarkerTexture> getAllMarkers(int tileChunks) {
-		Map<Landmark, MarkerTexture> map = new HashMap<>();
-		landmarkMarkers.forEach((type, landmarks) -> landmarks.forEach((pos, pair) -> map.put(pair.left(), pair.right())));
+	public Map<AtlasLandmark, MarkerTexture> getAllMarkers(int tileChunks) {
+		Map<AtlasLandmark, MarkerTexture> markers = new HashMap<>();
+		landmarkMarkers.values().forEach(entries -> entries.values().forEach(pair -> markers.put(pair.left(), pair.right())));
 		structureMarkers.forEach((landmark, texture) -> {
-			if (tileChunks >= texture.nearClip() && tileChunks <= texture.farClip()) map.put(landmark, texture);
+			if (tileChunks >= texture.nearClip() && tileChunks <= texture.farClip()) markers.put(landmark, texture);
 		});
-		return map;
+		return markers;
 	}
 
-	public MarkerTexture getMarkerTexture(Landmark landmark) {
-		return landmarkMarkers.containsKey(landmark.owner()) && landmarkMarkers.get(landmark.owner()).containsKey(landmark.id()) ? landmarkMarkers.get(landmark.owner()).get(landmark.id()).right() : structureMarkers.get(landmark);
+	public MarkerTexture getMarkerTexture(AtlasLandmark landmark) {
+		Map<ResourceLocation, Pair<AtlasLandmark, MarkerTexture>> entries = landmarkMarkers.get(landmark.owner());
+		return entries != null && entries.containsKey(landmark.id()) ? entries.get(landmark.id()).right() : structureMarkers.get(landmark);
 	}
 
-	public boolean isLoading() {
-		return terrainDequeHash.size() > 20;
-	}
+	public boolean isLoading() { return terrainDequeHash.size() > 20; }
 }

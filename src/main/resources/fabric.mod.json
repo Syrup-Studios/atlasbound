@@ -16,19 +16,26 @@
 		"sources": "${sources}"
 	},
 	"license": "${license}",
-	"icon": "assets/${modId}/icon.png",
+	"icon": "assets/antique_atlas/icon.png",
 	"mixins": [
-		"${modId}.mixins.json"
+		"antique_atlas.mixins.json",
+		"atlasbound.mixins.json"
 	],
 	"depends": {
-		"minecraft": ">=${mc}",
+		"minecraft": "${mc}",
 		"fabricloader": ">=${fl}",
 		"fabric-api": ">=${fapi}",
-		"surveyor": ">=${surveyor}"
+		"rosetta_library": ">=${rosetta}",
+		"rosetta_networking": ">=${rosettaNetworking}",
+		"map_foundation": "${mapFoundation}",
+		"syrup_library": ">=${syrupLibrary}"
 	},
 	"entrypoints": {
+		"main": [
+			"net.syrupstudios.atlasbound.loaders.fabric.FabricEntrypoint"
+		],
 		"client": [
-			"folk.sisby.antique_atlas.AntiqueAtlas"
+			"net.syrupstudios.atlasbound.loaders.fabric.FabricClientEntrypoint"
 		]
 	}
 }

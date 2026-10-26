@@ -1,0 +1,39 @@
+mod:
+  id: "atlasbound"
+  name: "Atlasbound"
+  group: "net.syrupstudios"
+  version: "0.4.0"
+  description: "Independent Antique Atlas 4 fork with server-owned, per-atlas exploration."
+  authors: "SodaSyrup, Hunternif, tyra314, Sisby folk"
+  contributors: "Kenkron, asiekierka, Haven King, TheCodeWarrior, osipxd, coolAlias, TehNut, lumiscosity, frodolon"
+  license: "LGPL-3.0-or-later"
+  homepage: "https://github.com/Syrup-Studios/atlasbound"
+  issues: "https://github.com/Syrup-Studios/atlasbound/issues"
+  sources: "https://github.com/Syrup-Studios/atlasbound"
+
+"1.21.1":
+  java:
+    version: 21
+  mod.mc_releases: ["1.21.1"]
+  mod:
+    fabric_mc_range: "1.21.1"
+    neoforge_mc_range: "[1.21.1]"
+  fabric:
+    deps:
+      fabric_loader: "0.19.3"
+      fabric_api: "0.116.15+1.21.1"
+      trinkets: "3.10.0"
+      curios: "9.5.1+1.21.1"
+      rosetta_networking: "0.2.0"
+  neoforge:
+    deps:
+      neoforge: "21.1.209"
+      trinkets: "3.10.0"
+      curios: "9.5.1+1.21.1"
+      rosetta_networking: "0.2.0"
+  deps:
+    rosetta: "0.2.0"
+    map_foundation: "0.1.1-atlasbound.3"
+    syrup_library: "0.5.1"
+
+loomx.loom_version: "1.17.14"

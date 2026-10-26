@@ -4,14 +4,14 @@ import com.google.gson.JsonObject;
 import com.mojang.serialization.Codec;
 import com.mojang.serialization.DataResult;
 import com.mojang.serialization.JsonOps;
-import net.minecraft.resource.metadata.ResourceMetadataReader;
-import net.minecraft.util.Identifier;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.Set;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.packs.metadata.MetadataSectionSerializer;
 
 public class CodecUtil {
 	public static <T> Codec<Set<T>> set(Codec<T> codec) {
@@ -28,9 +28,9 @@ public class CodecUtil {
 		}, value -> DataResult.success(value.name()));
 	}
 
-	public record CodecResourceMetadataSerializer<T>(Codec<T> codec, Identifier id) implements ResourceMetadataReader<T> {
+	public record CodecResourceMetadataSerializer<T>(Codec<T> codec, ResourceLocation id) implements MetadataSectionSerializer<T> {
 		@Override
-		public @NotNull String getKey() {
+		public @NotNull String getMetadataSectionName() {
 			return id.toString();
 		}
 

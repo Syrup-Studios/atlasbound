@@ -366,3 +366,6 @@ H         |     nether_portal.png
 H         |     grave.png
 S         |     icon.png
 --------------------------------------------
+
+Code attribution:
+Atlasbound maintainer: SodaSyrup. Terrain sampling is based on Surveyor by Sisby folk (LGPL-3.0-or-later).

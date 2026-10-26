@@ -1,30 +1,30 @@
 package folk.sisby.antique_atlas.gui;
 
-import folk.sisby.antique_atlas.AntiqueAtlas;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.text.Text;
-import net.minecraft.util.Identifier;
+import net.syrupstudios.atlasbound.Atlasbound;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 
 public class TextBookmarkButton extends BookmarkButton {
-	public static final Identifier RULER_TEXTURE_RIGHT = AntiqueAtlas.id("textures/gui/ruler_right.png");
+	public static final ResourceLocation RULER_TEXTURE_RIGHT = Atlasbound.legacyId("textures/gui/ruler_right.png");
 	public static final int SHORT_WIDTH = 20;
-	protected Text label;
+	protected Component label;
 
-	public TextBookmarkButton(Text title, Text label) {
+	public TextBookmarkButton(Component title, Component label) {
 		super(RULER_TEXTURE_RIGHT, title, null, null, null, 32, 32, false, false);
 		this.clickSound = null;
 		this.label = label;
 	}
 
-	public void setLabel(Text label) {
+	public void setLabel(Component label) {
 		this.label = label;
 	}
 
 	@Override
-	public void renderTooltip(DrawContext context, int mouseX, int mouseY, float partialTick, boolean mouseOver) {
+	public void renderTooltip(GuiGraphics context, int mouseX, int mouseY, float partialTick, boolean mouseOver) {
 		boolean isExtended = mouseOver || isSelected();
-		int centerOffsetX = (SHORT_WIDTH - textRenderer.getWidth(label)) / 2;
-		context.drawText(textRenderer, label, getGuiX() + centerOffsetX + (isExtended ? 3 : 0), getGuiY() + 5, 0xFF000000, false);
+		int centerOffsetX = (SHORT_WIDTH - font.width(label)) / 2;
+		context.drawString(font, label, getGuiX() + centerOffsetX + (isExtended ? 3 : 0), getGuiY() + 5, 0xFF000000, false);
 		if (!label.getString().equals("1c")) super.renderTooltip(context, mouseX, mouseY, partialTick, mouseOver);
 	}
 }

@@ -1,0 +1,10 @@
+{
+  "trinkets.slot.chest.atlas": "Atlas",
+  "curios.identifier.atlas": "Atlas",
+  "item.atlasbound.atlas": "Antique Atlas",
+  "message.atlasbound.server_update_needed": "Atlasbound needs an updated server for this action.",
+  "message.atlasbound.teleport_denied": "Atlasbound: you do not have permission to teleport.",
+  "message.atlasbound.teleport_unsafe": "Atlasbound: there is no safe landing spot there.",
+  "message.atlasbound.server_incompatible": "Atlasbound needs a compatible server.",
+  "message.atlasbound.open_rejected": "Atlasbound: the server did not accept this atlas."
+}

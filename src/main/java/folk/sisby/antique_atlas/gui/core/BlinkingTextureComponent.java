@@ -1,19 +1,19 @@
 package folk.sisby.antique_atlas.gui.core;
 
 import com.mojang.blaze3d.systems.RenderSystem;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.util.Identifier;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.resources.ResourceLocation;
 import org.lwjgl.opengl.GL11;
 
 /**
  * Displays a texture that changes alpha at regular intervals.
  * By default the texture file is assumed to be full image, but that behavior
- * can be altered by overriding the method {@link #drawImage(DrawContext)}.
+ * can be altered by overriding the method {@link #drawImage(GuiGraphics)}.
  *
  * @author Hunternif
  */
 public class BlinkingTextureComponent extends Component {
-	protected Identifier texture;
+	protected ResourceLocation texture;
 	/**
 	 * The number of milliseconds the icon spends visible or invisible.
 	 */
@@ -37,7 +37,7 @@ public class BlinkingTextureComponent extends Component {
 		this(500, 1, 0.25f);
 	}
 
-	public void setTexture(Identifier texture, int width, int height) {
+	public void setTexture(ResourceLocation texture, int width, int height) {
 		this.texture = texture;
 		setSize(width, height);
 		// Set up the timer so that the image appears visible at the first moment:
@@ -46,7 +46,7 @@ public class BlinkingTextureComponent extends Component {
 	}
 
 	@Override
-	public void render(DrawContext context, int mouseX, int mouseY, float partialTick) {
+	public void render(GuiGraphics context, int mouseX, int mouseY, float partialTick) {
 		long currentTime = System.currentTimeMillis();
 		if (lastTickTime + blinkTime < currentTime) {
 			lastTickTime = currentTime;
@@ -62,7 +62,7 @@ public class BlinkingTextureComponent extends Component {
 		RenderSystem.setShaderColor(1, 1, 1, 1);
 	}
 
-	protected void drawImage(DrawContext context) {
-		context.drawTexture(texture, getGuiX(), getGuiY(), 0, 0, getWidth(), getHeight(), getWidth(), getHeight());
+	protected void drawImage(GuiGraphics context) {
+		context.blit(texture, getGuiX(), getGuiY(), 0, 0, getWidth(), getHeight(), getWidth(), getHeight());
 	}
 }

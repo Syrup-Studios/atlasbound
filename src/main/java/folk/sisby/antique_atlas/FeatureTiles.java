@@ -1,15 +1,16 @@
 package folk.sisby.antique_atlas;
 
-import net.minecraft.util.Identifier;
+import net.syrupstudios.atlasbound.Atlasbound;
+import net.minecraft.resources.ResourceLocation;
 
 public class FeatureTiles {
-	public static final Identifier BEDROCK_ROOF = AntiqueAtlas.id("feature/bedrock_roof");
-	public static final Identifier EMPTY = AntiqueAtlas.id("feature/empty");
-	public static final Identifier END_VOID = AntiqueAtlas.id("feature/end_void");
-	public static final Identifier WATER = AntiqueAtlas.id("feature/water");
-	public static final Identifier ICE = AntiqueAtlas.id("feature/ice");
-	public static final Identifier TILE_RAVINE = AntiqueAtlas.id("feature/ravine");
-	public static final Identifier SWAMP_WATER = AntiqueAtlas.id("feature/swamp_water");
-	public static final Identifier TILE_LAVA = AntiqueAtlas.id("feature/lava");
-	public static final Identifier TILE_LAVA_SHORE = AntiqueAtlas.id("feature/lava_shore");
+	public static final ResourceLocation BEDROCK_ROOF = Atlasbound.legacyId("feature/bedrock_roof");
+	public static final ResourceLocation EMPTY = Atlasbound.legacyId("feature/empty");
+	public static final ResourceLocation END_VOID = Atlasbound.legacyId("feature/end_void");
+	public static final ResourceLocation WATER = Atlasbound.legacyId("feature/water");
+	public static final ResourceLocation ICE = Atlasbound.legacyId("feature/ice");
+	public static final ResourceLocation TILE_RAVINE = Atlasbound.legacyId("feature/ravine");
+	public static final ResourceLocation SWAMP_WATER = Atlasbound.legacyId("feature/swamp_water");
+	public static final ResourceLocation TILE_LAVA = Atlasbound.legacyId("feature/lava");
+	public static final ResourceLocation TILE_LAVA_SHORE = Atlasbound.legacyId("feature/lava_shore");
 }

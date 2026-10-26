@@ -10,42 +10,52 @@ displayName = "${modName}"
 description = '''${modDescription}'''
 authors = "${members}"
 displayURL = "${homepage}"
-logoFile = "assets/${modId}/icon.png"
+logoFile = "assets/antique_atlas/icon.png"
 
-[properties]
-"connector:placeholder" = true
+[[mixins]]
+config = "antique_atlas.mixins.json"
 
-[[dependencies.${ modId }]]
-modId = "connector"
-type = "required"
-versionRange = "*"
-ordering = "NONE"
-side = "BOTH"
+[[mixins]]
+config = "${modId}.mixins.json"
 
 [[dependencies.${ modId }]]
 modId = "neoforge"
 type = "required"
-versionRange = "*"
+versionRange = "[${neoforge},)"
 ordering = "NONE"
 side = "BOTH"
 
 [[dependencies.${ modId }]]
 modId = "minecraft"
 type = "required"
-versionRange = "[${mc},)"
+versionRange = "${mc}"
 ordering = "NONE"
 side = "BOTH"
 
 [[dependencies.${ modId }]]
-modId = "fabric_api"
+modId = "rosetta_library"
 type = "required"
-versionRange = "[${fapi},)"
-ordering = "NONE"
+versionRange = "[${rosetta},)"
+ordering = "AFTER"
 side = "BOTH"
 
 [[dependencies.${ modId }]]
-modId = "surveyor"
-mandatory = true
-versionRange = "[${surveyor},)"
-ordering = "NONE"
+modId = "rosetta_networking"
+type = "required"
+versionRange = "[${rosettaNetworking},)"
+ordering = "AFTER"
+side = "BOTH"
+
+[[dependencies.${ modId }]]
+modId = "map_foundation"
+type = "required"
+versionRange = "[${mapFoundation}]"
+ordering = "AFTER"
+side = "BOTH"
+
+[[dependencies.${ modId }]]
+modId = "syrup_library"
+type = "required"
+versionRange = "[${syrupLibrary},)"
+ordering = "AFTER"
 side = "BOTH"

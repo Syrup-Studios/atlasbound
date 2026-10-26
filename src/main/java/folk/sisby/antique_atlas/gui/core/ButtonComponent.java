@@ -1,12 +1,11 @@
 package folk.sisby.antique_atlas.gui.core;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.sound.PositionedSoundInstance;
-import net.minecraft.sound.SoundEvent;
-import net.minecraft.sound.SoundEvents;
-
 import java.util.ArrayList;
 import java.util.List;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
+import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundEvents;
 
 /**
  * A GuiComponent that can act like a button.
@@ -33,7 +32,7 @@ public class ButtonComponent extends Component {
 	@SuppressWarnings("unchecked")
 	public void onClick() {
 		if (clickSound != null) {
-			MinecraftClient.getInstance().getSoundManager().play(PositionedSoundInstance.master(clickSound, 1.0F));
+			Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(clickSound, 1.0F));
 		}
 
 		for (IButtonListener listener : listeners) {

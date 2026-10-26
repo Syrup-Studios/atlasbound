@@ -1,35 +1,33 @@
 package folk.sisby.antique_atlas.gui;
 
+import net.syrupstudios.atlasbound.Atlasbound;
 import folk.sisby.antique_atlas.MarkerTexture;
-import folk.sisby.antique_atlas.WorldAtlasData;
 import folk.sisby.antique_atlas.gui.core.Component;
 import folk.sisby.antique_atlas.gui.core.ScrollBoxComponent;
 import folk.sisby.antique_atlas.gui.core.ToggleButtonRadioGroup;
 import folk.sisby.antique_atlas.reloader.MarkerTextures;
 import folk.sisby.antique_atlas.util.ColorUtil;
-import folk.sisby.surveyor.WorldSummary;
-import folk.sisby.surveyor.landmark.Landmark;
-import folk.sisby.surveyor.landmark.WorldLandmarks;
-import folk.sisby.surveyor.landmark.component.LandmarkComponentTypes;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.client.network.ClientPlayerEntity;
-import net.minecraft.client.sound.PositionedSoundInstance;
-import net.minecraft.item.Item;
-import net.minecraft.registry.DynamicRegistryManager;
-import net.minecraft.registry.RegistryKeys;
-import net.minecraft.sound.SoundEvents;
-import net.minecraft.text.MutableText;
-import net.minecraft.text.Text;
-import net.minecraft.util.DyeColor;
-
+import net.syrupstudios.atlasbound.client.AtlasClientState;
+import net.syrupstudios.atlasbound.map.AtlasLandmark;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.client.resources.sounds.SimpleSoundInstance;
+import net.minecraft.core.RegistryAccess;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.sounds.SoundEvents;
+import net.minecraft.world.item.DyeColor;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
 
 /**
  * This GUI is used select marker icon and enter a label.
@@ -38,9 +36,9 @@ import java.util.Map;
  * @author Hunternif
  */
 public class MarkerModal extends Component {
-	protected WorldSummary summary;
-	protected DynamicRegistryManager manager;
-	protected Landmark baseLandmark = null;
+	protected ResourceLocation dimension;
+	protected RegistryAccess manager;
+	protected AtlasLandmark baseLandmark = null;
 
 	protected MarkerTexture selectedTexture = MarkerTexture.DEFAULT;
 	protected DyeColor selectedColor = DyeColor.WHITE;
@@ -50,9 +48,9 @@ public class MarkerModal extends Component {
 
 	public static final int TYPE_SPACING = 1;
 
-	protected ButtonWidget btnDone;
-	protected ButtonWidget btnCancel;
-	protected TextFieldWidget textField;
+	protected Button btnDone;
+	protected Button btnCancel;
+	protected EditBox textField;
 	protected ScrollBoxComponent textureScrollBox;
 	protected ToggleButtonRadioGroup<TexturePreviewButton<MarkerTexture>> textureRadioGroup;
 	protected ScrollBoxComponent colorScrollBox;
@@ -65,11 +63,11 @@ public class MarkerModal extends Component {
 	public MarkerModal() {
 	}
 
-	void setMarkerData(WorldSummary summary, DynamicRegistryManager manager, Landmark baseLandmark) {
-		this.summary = summary;
+	void setMarkerData(ResourceLocation dimension, RegistryAccess manager, AtlasLandmark baseLandmark) {
+		this.dimension = dimension;
 		this.manager = manager;
 		this.baseLandmark = baseLandmark;
-		this.selectedColor = Arrays.stream(DyeColor.values()).filter(d -> baseLandmark.contains(LandmarkComponentTypes.COLOR) && d.getEntityColor() == baseLandmark.get(LandmarkComponentTypes.COLOR)).findAny().orElse(DyeColor.WHITE);
+		this.selectedColor = Arrays.stream(DyeColor.values()).filter(d -> d.getTextureDiffuseColor() == baseLandmark.color()).findAny().orElse(DyeColor.WHITE);
 		this.selectedTexture = MarkerTextures.getInstance().fromLandmark(baseLandmark);
 		if (!selectedTexture.keyId().getPath().startsWith("custom/")) selectedTexture = textureButtons.keySet().stream().findFirst().orElse(MarkerTexture.DEFAULT);
 		if (colorRadioGroup != null) updateSelected();
@@ -89,34 +87,29 @@ public class MarkerModal extends Component {
 		removeAllChildren();
 		super.init();
 
-		addDrawableChild(btnDone = ButtonWidget.builder(Text.translatable("gui.done"), (button) -> {
-			MutableText label = Text.literal(textField.getText());
-			WorldLandmarks landmarks = summary.landmarks();
-			if (landmarks != null) {
-				landmarks.remove(baseLandmark.owner(), baseLandmark.id());
-				landmarks.put(WorldAtlasData.copyLandmarkWith(
-					baseLandmark,
-					selectedTexture.keyId().withSuffixedPath("/" + selectedColor.getName() + "/" + baseLandmark.get(LandmarkComponentTypes.POS).getX() + "/" + baseLandmark.get(LandmarkComponentTypes.POS).getZ()),
-					copy -> {
-					Item item = manager.get(RegistryKeys.ITEM).get(selectedTexture.item());
-					if (item != null && !item.getDefaultStack().isEmpty()) copy.set(LandmarkComponentTypes.STACK, item.getDefaultStack().copy());
-					copy.set(LandmarkComponentTypes.COLOR, selectedColor.getEntityColor());
-					copy.set(LandmarkComponentTypes.NAME, label);
-				}));
-			}
+		addRenderableWidget(btnDone = Button.builder(net.minecraft.network.chat.Component.translatable("gui.done"), (button) -> {
+			var label = net.minecraft.network.chat.Component.literal(textField.getValue());
+			Item item = manager.registryOrThrow(Registries.ITEM).get(selectedTexture.item());
+			ItemStack stack = item == null ? baseLandmark.stack() : item.getDefaultInstance().copy();
+			var pos = baseLandmark.pos();
+			ResourceLocation id = selectedTexture.keyId().withSuffix("/" + selectedColor.getName() + "/" + pos.getX() + "/" + pos.getZ());
+			AtlasLandmark updated = new AtlasLandmark(baseLandmark.owner(), id, pos, baseLandmark.chunks(), label,
+					baseLandmark.lore(), selectedColor.getTextureDiffuseColor(), stack, baseLandmark.time(), baseLandmark.seed());
+			AtlasClientState.submitMarker(dimension,
+					baseLandmark.id().equals(Atlasbound.legacyId("newmarker")) ? null : baseLandmark, updated);
 			((AtlasScreen) getParent()).updateBookmarkerList();
-			ClientPlayerEntity player = MinecraftClient.getInstance().player;
-			if (player != null) MinecraftClient.getInstance().getSoundManager().play(PositionedSoundInstance.master(SoundEvents.ENTITY_VILLAGER_WORK_CARTOGRAPHER, 1F));
+			LocalPlayer player = Minecraft.getInstance().player;
+			if (player != null) Minecraft.getInstance().getSoundManager().play(SimpleSoundInstance.forUI(SoundEvents.VILLAGER_WORK_CARTOGRAPHER, 1F));
 			closeChild();
-		}).dimensions(this.width / 2 - BUTTON_WIDTH - BUTTON_SPACING / 2, this.height / 2 + 70, BUTTON_WIDTH, 20).build());
-		addDrawableChild(btnCancel = ButtonWidget.builder(Text.translatable("gui.cancel"), (button) -> closeChild())
-			.dimensions(this.width / 2 + BUTTON_SPACING / 2, this.height / 2 + 70, BUTTON_WIDTH, 20).build());
-		textField = new TextFieldWidget(MinecraftClient.getInstance().textRenderer, (this.width - 200) / 2, this.height / 2 - 65, 200, 20, Text.translatable("gui.antique_atlas.marker.label"));
+		}).bounds(this.width / 2 - BUTTON_WIDTH - BUTTON_SPACING / 2, this.height / 2 + 70, BUTTON_WIDTH, 20).build());
+		addRenderableWidget(btnCancel = Button.builder(net.minecraft.network.chat.Component.translatable("gui.cancel"), (button) -> closeChild())
+			.bounds(this.width / 2 + BUTTON_SPACING / 2, this.height / 2 + 70, BUTTON_WIDTH, 20).build());
+		textField = new EditBox(Minecraft.getInstance().font, (this.width - 200) / 2, this.height / 2 - 65, 200, 20, net.minecraft.network.chat.Component.translatable("gui.antique_atlas.marker.label"));
 		textField.setEditable(true);
-		textField.setFocusUnlocked(true);
+		textField.setCanLoseFocus(true);
 		textField.setFocused(true);
-		textField.setPlaceholder(Text.translatable("gui.antique_atlas.marker.label"));
-		textField.setText(baseLandmark.getOrDefault(LandmarkComponentTypes.NAME, Text.empty()).getString());
+		textField.setHint(net.minecraft.network.chat.Component.translatable("gui.antique_atlas.marker.label"));
+		textField.setValue(baseLandmark.name() == null ? "" : baseLandmark.name().getString());
 
 		textureScrollBox = new ScrollBoxComponent(false, (TexturePreviewButton.FRAME_SIZE + TYPE_SPACING));
 		this.addChild(textureScrollBox);
@@ -201,9 +194,9 @@ public class MarkerModal extends Component {
 	}
 
 	@Override
-	public void render(DrawContext context, int mouseX, int mouseY, float partialTick) {
+	public void render(GuiGraphics context, int mouseX, int mouseY, float partialTick) {
 		this.renderBackground(context, mouseX, mouseY, partialTick);
-		drawCentered(context, Text.translatable("gui.antique_atlas.marker.label"), this.height / 2 - 80, 0xDDDDDD, true);
+		drawCentered(context, net.minecraft.network.chat.Component.translatable("gui.antique_atlas.marker.label"), this.height / 2 - 80, 0xDDDDDD, true);
 		btnCancel.render(context, mouseX, mouseY, partialTick);
 		btnDone.render(context, mouseX, mouseY, partialTick);
 		textField.render(context, mouseX, mouseY, partialTick);

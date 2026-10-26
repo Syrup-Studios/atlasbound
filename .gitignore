@@ -3,6 +3,8 @@
 build/
 out/
 classes/
+/libs/
+/map-foundation/
 
 # Loom
 run/
