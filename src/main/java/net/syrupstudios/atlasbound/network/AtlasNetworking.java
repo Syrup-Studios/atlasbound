@@ -37,6 +37,7 @@ import net.syrupstudios.atlasbound.client.AtlasClientPacketHandlers;
 public final class AtlasNetworking {
     private static final RosettaNetwork.Channel CHANNEL = RosettaNetwork.channel("atlasbound");
     private static final Map<UUID, ClientState> CLIENTS = new HashMap<>();
+    private static long epochCounter;
     private static final Map<UUID, Integer> LAST_OPEN_TICK = new HashMap<>();
     private static final Map<UUID, Long> LAST_TELEPORT_NANOS = new HashMap<>();
     private static final Map<UUID, Long> LAST_MARKER_EDIT_NANOS = new HashMap<>();
@@ -127,7 +128,7 @@ public final class AtlasNetworking {
             RosettaNetwork.sendToPlayer(new AtlasPackets.Ready(state.epoch), player);
             return;
         }
-        state.epoch++;
+        state.epoch = ++epochCounter;
         state.atlas = atlas;
         RosettaNetwork.sendToPlayer(new AtlasPackets.Selection(state.epoch, atlas, openScreen), player);
         sendWorld(player, state);
