@@ -27,7 +27,6 @@
 		"fabric-api": ">=${fapi}",
 		"rosetta_library": ">=${rosetta}",
 		"rosetta_networking": ">=${rosettaNetworking}",
-		"map_foundation": "${mapFoundation}",
 		"syrup_library": ">=${syrupLibrary}"
 	},
 	"entrypoints": {

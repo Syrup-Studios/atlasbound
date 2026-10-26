@@ -23,14 +23,6 @@ dependencies {
     compileOnly("com.electronwill.night-config:toml:3.8.3")
     implementation("net.rasanovum.rosetta:rosetta-1.21.1-neoforge:${property("deps.rosetta")}")
     implementation("net.rasanovum.rosetta:rosetta-networking-1.21.1-neoforge:${property("deps.rosetta_networking")}")
-    val mapFoundationJar = providers.gradleProperty("mapFoundationNeoForgeJar")
-        .orElse("map-foundation/versions/1.21.1-neoforge/build/libs/map-foundation-1.21.1-neoforge-0.1.1-atlasbound.3.jar").get()
-    val mapFoundationJarFile = rootProject.file(mapFoundationJar)
-    if (!mapFoundationJarFile.isFile) {
-        throw GradleException("Map Foundation NeoForge jar not found: ${mapFoundationJarFile.path}. Build the map-foundation project first, or set -PmapFoundationNeoForgeJar=<path>.")
-    }
-    compileOnly(files(mapFoundationJarFile))
-    runtimeOnly(files(mapFoundationJarFile))
     compileOnly("top.theillusivec4.curios:curios-neoforge:${property("deps.curios")}:api") {
         isTransitive = false
     }
@@ -80,7 +72,6 @@ tasks.processResources {
         "neoforge" to project.property("deps.neoforge"),
         "rosetta" to project.property("deps.rosetta"),
         "rosettaNetworking" to project.property("deps.rosetta_networking"),
-        "mapFoundation" to project.property("deps.map_foundation"),
         "syrupLibrary" to project.property("deps.syrup_library"),
     )
     inputs.properties(values)

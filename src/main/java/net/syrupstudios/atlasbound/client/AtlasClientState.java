@@ -44,6 +44,8 @@ public final class AtlasClientState {
 
     private AtlasClientState() {}
 
+    public static long currentEpoch() { return epoch; }
+
     public static void begin(AtlasPackets.Selection packet) {
         if (packet.epoch() < epoch) return;
         if (packet.epoch() == epoch) {
@@ -53,6 +55,7 @@ public final class AtlasClientState {
             return;
         }
         saveViews(views);
+        AtlasMapClient.clear();
         closeScreen();
         detachViews();
         if (atlas != null) cacheViews(atlas, views);
@@ -244,6 +247,7 @@ public final class AtlasClientState {
 
     public static void clear(boolean close) {
         saveAllViews();
+        AtlasMapClient.clear();
         if (close) closeScreen();
         if (atlas != null) cacheViews(atlas, views);
         detachViews();

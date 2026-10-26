@@ -15,7 +15,6 @@ import net.minecraft.world.item.component.ItemLore;
 import net.rasanovum.rosetta.registry.ModRegistrar;
 import net.rasanovum.rosetta.registry.RegistrationContext;
 import net.rasanovum.rosetta.registry.RegistryHandle;
-import net.syrupstudios.atlasbound.backend.AtlasMapBackend;
 import net.syrupstudios.atlasbound.client.AtlasClientState;
 import net.syrupstudios.atlasbound.map.AtlasPlayer;
 import net.syrupstudios.atlasbound.network.AtlasNetworking;
@@ -44,7 +43,6 @@ public final class Atlasbound {
 
     public static void initialize(String loader, RegistrationContext context) {
         REGISTRAR.register(context);
-        AtlasMapBackend.initialize();
         AtlasNetworking.initialize();
         LOGGER.info("Atlasbound initialized for {}", loader);
     }

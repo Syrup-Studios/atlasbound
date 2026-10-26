@@ -33,7 +33,6 @@ mod:
       rosetta_networking: "0.2.0"
   deps:
     rosetta: "0.2.0"
-    map_foundation: "0.1.1-atlasbound.3"
     syrup_library: "0.5.1"
 
 loomx.loom_version: "1.17.14"

@@ -35,13 +35,6 @@ dependencies {
     include(rosetta)
     modImplementation(rosettaNetworking)
     include(rosettaNetworking)
-    val mapFoundationJarPath = providers.gradleProperty("mapFoundationFabricJar")
-        .orElse("map-foundation/versions/1.21.1-fabric/build/libs/map-foundation-1.21.1-fabric-0.1.1-atlasbound.3.jar").get()
-    val mapFoundationJar = rootProject.file(mapFoundationJarPath)
-    if (!mapFoundationJar.isFile) {
-        throw GradleException("Map Foundation Fabric jar not found: ${mapFoundationJar.path}. Build the map-foundation project first, or set -PmapFoundationFabricJar=<path>.")
-    }
-    modImplementation(files(mapFoundationJar))
 }
 
 loom {
@@ -82,7 +75,6 @@ tasks.processResources {
         "fapi" to project.property("deps.fabric_api"),
         "rosetta" to project.property("deps.rosetta"),
         "rosettaNetworking" to project.property("deps.rosetta_networking"),
-        "mapFoundation" to project.property("deps.map_foundation"),
         "syrupLibrary" to project.property("deps.syrup_library"),
         "authors" to (project.property("mod.authors") as String).split(", ").joinToString("\",\n\t\t\""),
         "contributors" to (project.property("mod.contributors") as String).split(", ").joinToString("\",\n\t\t\""),

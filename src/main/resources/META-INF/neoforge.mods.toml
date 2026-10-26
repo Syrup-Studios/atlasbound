@@ -47,13 +47,6 @@ ordering = "AFTER"
 side = "BOTH"
 
 [[dependencies.${ modId }]]
-modId = "map_foundation"
-type = "required"
-versionRange = "[${mapFoundation}]"
-ordering = "AFTER"
-side = "BOTH"
-
-[[dependencies.${ modId }]]
 modId = "syrup_library"
 type = "required"
 versionRange = "[${syrupLibrary},)"

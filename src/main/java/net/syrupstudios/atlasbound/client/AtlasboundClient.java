@@ -24,5 +24,6 @@ public final class AtlasboundClient implements RosettaClientEntrypoint {
         Minecraft client = Minecraft.getInstance();
         AntiqueAtlasKeybindings.onClientTick(client);
         AtlasClientState.tick(client);
+        AtlasMapClient.tick();
     }
 }

@@ -53,6 +53,8 @@ public final class AtlasNetworking {
                 AtlasNetworking::markerEditPacket);
         CHANNEL.serverbound("teleport", AtlasPackets.Teleport.class, AtlasPackets.Teleport::new,
                 AtlasNetworking::teleportPacket);
+        CHANNEL.serverbound("map_request", AtlasMapPackets.Request.class, AtlasMapPackets.Request::new,
+                (packet, player) -> AtlasMapBackend.request(player, packet));
         CHANNEL.clientbound("selection", AtlasPackets.Selection.class, AtlasPackets.Selection::new,
                 AtlasClientPacketHandlers::selection);
         CHANNEL.clientbound("region", AtlasPackets.Region.class, AtlasPackets.Region::new,
@@ -63,6 +65,10 @@ public final class AtlasNetworking {
                 AtlasClientPacketHandlers::marker);
         CHANNEL.clientbound("carried", AtlasPackets.Carried.class, AtlasPackets.Carried::new,
                 AtlasClientPacketHandlers::carried);
+        CHANNEL.clientbound("map_world", AtlasMapPackets.World.class, AtlasMapPackets.World::new,
+                (packet, player) -> net.syrupstudios.atlasbound.client.AtlasMapClient.world(packet));
+        CHANNEL.clientbound("map_chunk", AtlasMapPackets.Chunk.class, AtlasMapPackets.Chunk::new,
+                (packet, player) -> net.syrupstudios.atlasbound.client.AtlasMapClient.receive(packet));
         AtlasManager.setTransport(new AtlasManager.Transport() {
             @Override
             public void selection(ServerPlayer player, UUID atlasId, AtlasData data, boolean openScreen) {
@@ -82,7 +88,6 @@ public final class AtlasNetworking {
                 ClientState state = CLIENTS.get(player.getUUID());
                 if (state == null || !atlasId.equals(state.atlas)) return;
                 RosettaNetwork.sendToPlayer(new AtlasPackets.Region(state.epoch, dimension, region, bits.toLongArray()), player);
-                AtlasMapBackend.queueRegion(player, dimension, region, bits);
             }
         });
     }
@@ -97,6 +102,7 @@ public final class AtlasNetworking {
     }
 
     public static void disconnect(ServerPlayer player) {
+        AtlasMapBackend.disconnect(player);
         AtlasManager.removePlayer(player);
         CLIENTS.remove(player.getUUID());
         LAST_OPEN_TICK.remove(player.getUUID());
@@ -109,7 +115,7 @@ public final class AtlasNetworking {
         LAST_OPEN_TICK.clear();
         LAST_TELEPORT_NANOS.clear();
         LAST_MARKER_EDIT_NANOS.clear();
-        AtlasMapBackend.serverStopped();
+        AtlasMapBackend.serverStopped(server);
         AtlasManager.serverStopped(server);
     }
 
@@ -117,12 +123,14 @@ public final class AtlasNetworking {
         ClientState state = CLIENTS.computeIfAbsent(player.getUUID(), ignored -> new ClientState());
         if (atlas != null && atlas.equals(state.atlas)) {
             RosettaNetwork.sendToPlayer(new AtlasPackets.Selection(state.epoch, atlas, openScreen), player);
+            sendWorld(player, state);
             RosettaNetwork.sendToPlayer(new AtlasPackets.Ready(state.epoch), player);
             return;
         }
         state.epoch++;
         state.atlas = atlas;
         RosettaNetwork.sendToPlayer(new AtlasPackets.Selection(state.epoch, atlas, openScreen), player);
+        sendWorld(player, state);
         if (atlas != null && data != null) {
             // Snapshot transfer size grows with the atlas's explored regions.
             ResourceLocation currentDimension = player.serverLevel().dimension().location();
@@ -148,6 +156,17 @@ public final class AtlasNetworking {
         RosettaNetwork.sendToPlayer(new AtlasPackets.Ready(state.epoch), player);
     }
 
+    private static void sendWorld(ServerPlayer player, ClientState state) {
+        RosettaNetwork.sendToPlayer(new AtlasMapPackets.World(state.epoch,
+                AtlasMapBackend.worldId(player.getServer())), player);
+    }
+
+    public static boolean mapRequestValid(ServerPlayer player, long epoch) {
+        ClientState state = CLIENTS.get(player.getUUID());
+        return state != null && state.epoch == epoch && state.atlas != null
+                && state.atlas.equals(AtlasManager.selected(player));
+    }
+
     private static long regionDistance(long region, int playerRegionX, int playerRegionZ) {
         return Math.abs((long) ChunkPos.getX(region) - playerRegionX)
                 + Math.abs((long) ChunkPos.getZ(region) - playerRegionZ);
@@ -157,7 +176,6 @@ public final class AtlasNetworking {
             ServerPlayer player, ClientState state, ResourceLocation dimension, long region, BitSet bits) {
         RosettaNetwork.sendToPlayer(
                 new AtlasPackets.Region(state.epoch, dimension, region, bits.toLongArray()), player);
-        AtlasMapBackend.queueRegion(player, dimension, region, bits);
     }
 
     private static void openPacket(AtlasPackets.Open packet, ServerPlayer player) {

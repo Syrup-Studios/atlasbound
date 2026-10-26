@@ -21,7 +21,6 @@ import net.syrupstudios.atlasbound.map.AtlasLandmark;
 import net.syrupstudios.atlasbound.map.AtlasMapData;
 import net.syrupstudios.atlasbound.map.AtlasStructureStart;
 import net.syrupstudios.atlasbound.map.AtlasTerrainChunk;
-import net.rasanovum.mapfoundation.map.ChunkDataClient;
 
 public final class AtlasMapView extends WorldAtlasData {
     private final ResourceLocation dimension;
@@ -32,7 +31,7 @@ public final class AtlasMapView extends WorldAtlasData {
     private final java.util.List<Long> regionOrder = new java.util.ArrayList<>();
     private final Map<ChunkPos, Long> inputRevisions = new HashMap<>();
     private final Map<ChunkPos, Long> structureRevisions = new HashMap<>();
-    private final Map<Long, Long> structureRegionRevisions = new HashMap<>();
+    private final Map<ChunkPos, java.util.List<AtlasStructureStart>> structureRecords = new HashMap<>();
     private final java.util.LinkedHashSet<ChunkPos> renderPriority = new java.util.LinkedHashSet<>();
     private final Map<ChunkPos, AtlasTileCache.Entry> cachedTiles = new HashMap<>();
     private static final int MAX_RENDER_PRIORITY = 256;
@@ -79,7 +78,7 @@ public final class AtlasMapView extends WorldAtlasData {
     @Override
     public void tick(RegistryAccess registries) {
         if (!AtlasClientState.owns(owner) || registries == null || regionMasks.isEmpty()) return;
-        UUID currentWorld = ChunkDataClient.worldIdentity(dimensionKey);
+        UUID currentWorld = AtlasMapClient.worldIdentity(dimensionKey);
         if (currentWorld == null) return;
         if (!currentWorld.equals(worldIdentity)) {
             if (cacheDirty && cacheFingerprint != null && !saveCache()) return;
@@ -134,7 +133,7 @@ public final class AtlasMapView extends WorldAtlasData {
         structureSnapshots.clear();
         inputRevisions.clear();
         structureRevisions.clear();
-        structureRegionRevisions.clear();
+        structureRecords.clear();
         terrainDeque.clear();
         terrainDequeHash.clear();
         regionCursor = 0;
@@ -166,7 +165,7 @@ public final class AtlasMapView extends WorldAtlasData {
         structureSnapshots.clear();
         inputRevisions.clear();
         structureRevisions.clear();
-        structureRegionRevisions.clear();
+        structureRecords.clear();
         terrainDeque.clear();
         terrainDequeHash.clear();
         regionCursor = 0;
@@ -176,26 +175,30 @@ public final class AtlasMapView extends WorldAtlasData {
 
     boolean hasWorldData() {
         return AtlasClientState.owns(owner) && worldIdentity != null
-                && worldIdentity.equals(ChunkDataClient.worldIdentity(dimensionKey));
+                && worldIdentity.equals(AtlasMapClient.worldIdentity(dimensionKey));
     }
 
     private void processChunk(ChunkPos pos, RegistryAccess registries, boolean priority) {
         if (!AtlasClientState.allows(dimension, pos)) return;
-        long revision = ChunkDataClient.revision(dimensionKey, pos);
-        if (revision == 0) return;
-        restoreCached(pos, revision);
+        long revision = AtlasMapClient.revision(dimensionKey, pos);
         long previous = inputRevisions.getOrDefault(pos, 0L);
         boolean changed = revision != previous;
         boolean needTerrain = changed || !biomeTiles.containsKey(pos);
+        long previousStructureRevision = structureRevisions.getOrDefault(pos, 0L);
         boolean needStructures = structureRevisions.getOrDefault(pos, 0L) != revision;
         if (!needTerrain && !needStructures) return;
-        byte[] raw = priority ? ChunkDataClient.getPriority(dimensionKey, pos) : ChunkDataClient.get(dimensionKey, pos);
-        if (raw == null) return;
+        byte[] raw = priority ? AtlasMapClient.getPriority(dimensionKey, pos) : AtlasMapClient.get(dimensionKey, pos);
+        if (revision == 0 || raw == null) return;
+        restoreCached(pos, revision);
         try {
             AtlasMapData data = AtlasMapData.decode(raw);
             if (!pos.equals(data.terrain().pos())) return;
             if (changed) {
                 if (previous != 0) invalidateTerrain(pos);
+                if (previousStructureRevision != 0 && previousStructureRevision != revision) {
+                    structureRecords.remove(pos);
+                    rebuildStructures();
+                }
                 structureRevisions.remove(pos);
                 needStructures = structureRevisions.getOrDefault(pos, 0L) != revision;
             }
@@ -204,24 +207,25 @@ public final class AtlasMapView extends WorldAtlasData {
                 cacheDirty = true;
             }
             if (needStructures) {
-                long region = net.rasanovum.mapfoundation.map.MapRegionVersion.key(pos.x >> 5, pos.z >> 5);
-                Long previousRegionRevision = structureRegionRevisions.put(region, revision);
-                if (previousRegionRevision != null && previousRegionRevision != revision) invalidateStructures();
-                for (AtlasStructureStart structure : data.structures()) acceptStructure(structure, registries);
+                structureRecords.put(pos, java.util.List.copyOf(data.structures()));
+                data.structures().forEach(structure -> acceptStructure(structure, registries));
                 structureRevisions.put(pos, revision);
             }
             inputRevisions.put(pos, revision);
         } catch (RuntimeException ignored) {
-            // Invalid or stale chunk data is requested again from Map Foundation.
+            // Invalid or stale chunk data is requested again from the server.
         }
     }
 
     private void prioritize(ChunkPos pos) {
         if (!hasWorldData() || !AtlasClientState.allows(dimension, pos)) return;
-        long revision = ChunkDataClient.revision(dimensionKey, pos);
-        if (revision == 0 || (biomeTiles.containsKey(pos)
+        long revision = AtlasMapClient.revision(dimensionKey, pos);
+        if (biomeTiles.containsKey(pos)
                 && inputRevisions.getOrDefault(pos, 0L) == revision
-                && structureRevisions.getOrDefault(pos, 0L) == revision)) return;
+                && structureRevisions.getOrDefault(pos, 0L) == revision) {
+            AtlasMapClient.revisionPriority(dimensionKey, pos);
+            return;
+        }
         if (renderPriority.size() >= MAX_RENDER_PRIORITY) return;
         renderPriority.add(pos);
     }
@@ -253,7 +257,7 @@ public final class AtlasMapView extends WorldAtlasData {
             cacheLoadPending = false;
             Minecraft client = Minecraft.getInstance();
             if (generation != AtlasTileCache.generation()
-                    || !world.equals(worldIdentity) || !world.equals(ChunkDataClient.worldIdentity(dimensionKey))
+                    || !world.equals(worldIdentity) || !world.equals(AtlasMapClient.worldIdentity(dimensionKey))
                     || !java.util.Objects.equals(fingerprint, AtlasTileCache.fingerprint(client.getConnection() == null
                             ? null : client.getConnection().registryAccess()))
                     || !AtlasClientState.isCurrentOrRetained(this)) return;
@@ -313,8 +317,6 @@ public final class AtlasMapView extends WorldAtlasData {
         debugBiomePredicates.put(pos, elevation == null ? null : elevation.getName());
         tileScope.extendTo(pos.x, pos.z);
         inputRevisions.put(pos, revision);
-        long region = net.rasanovum.mapfoundation.map.MapRegionVersion.key(pos.x >> 5, pos.z >> 5);
-        structureRegionRevisions.putIfAbsent(region, revision);
         terrainSnapshots.remove(pos);
         terrainDeque.remove(pos);
         terrainDequeHash.remove(pos);
@@ -340,13 +342,16 @@ public final class AtlasMapView extends WorldAtlasData {
         return cacheDirty && worldIdentity != null && cacheFingerprint != null;
     }
 
-    private void invalidateStructures() {
+    private void rebuildStructures() {
         structureTiles.clear();
         debugStructures.clear();
         debugStructurePredicates.clear();
         structureMarkers.clear();
         structureSnapshots.clear();
-        structureRevisions.clear();
+        if (Minecraft.getInstance().getConnection() != null) {
+            RegistryAccess registries = Minecraft.getInstance().getConnection().registryAccess();
+            structureRecords.values().forEach(records -> records.forEach(record -> acceptStructure(record, registries)));
+        }
     }
 
     void setMarkers(Map<ResourceLocation, AtlasMarker> markers) {

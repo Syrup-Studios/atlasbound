@@ -15,6 +15,7 @@ public final class AtlasboundEntrypoint implements RosettaCommonEntrypoint {
             }
 
             @Override public void onServerLevelTick(net.minecraft.server.level.ServerLevel level) {
+                net.syrupstudios.atlasbound.backend.AtlasMapBackend.tick(level);
                 if (level == level.getServer().overworld()) {
                     AtlasManager.tick(level.getServer());
                 }
