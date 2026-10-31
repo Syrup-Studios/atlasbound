@@ -10,6 +10,10 @@ mod:
   homepage: "https://github.com/Syrup-Studios/atlasbound"
   issues: "https://github.com/Syrup-Studios/atlasbound/issues"
   sources: "https://github.com/Syrup-Studios/atlasbound"
+publish:
+  modrinth: "YMo6N8cC"
+  curseforge: "1720083"
+  release_type: "beta"
 
 "1.21.1":
   java:
