@@ -11,6 +11,12 @@ group = property("mod.group") as String
 base.archivesName = modId
 
 repositories {
+    exclusiveContent {
+        forRepositories(maven("https://raw.githubusercontent.com/Rasa-Novum/Rosetta_Library/390046da82505320eec2dbc7b05e1d4747d92fa7/"))
+        filter {
+            includeModule("com.rasanovum.rosetta", "rosetta-1.21.1-neoforge")
+        }
+    }
     maven("https://repo.sleeping.town/")
     maven("https://raw.githubusercontent.com/Rasa-Novum/Rosetta_Library/maven/")
     maven("https://maven.ladysnake.org/releases")
