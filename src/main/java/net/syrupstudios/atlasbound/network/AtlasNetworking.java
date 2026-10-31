@@ -48,28 +48,30 @@ public final class AtlasNetworking {
     public static void initialize() {
         if (initialized) return;
         initialized = true;
-        CHANNEL.serverbound("open", AtlasPackets.Open.class, AtlasPackets.Open::new, AtlasNetworking::openPacket);
-        CHANNEL.serverbound("close", AtlasPackets.Close.class, AtlasPackets.Close::new, AtlasNetworking::closePacket);
-        CHANNEL.serverbound("marker_edit", AtlasPackets.MarkerEdit.class, AtlasPackets.MarkerEdit::new,
-                AtlasNetworking::markerEditPacket);
-        CHANNEL.serverbound("teleport", AtlasPackets.Teleport.class, AtlasPackets.Teleport::new,
-                AtlasNetworking::teleportPacket);
-        CHANNEL.serverbound("map_request", AtlasMapPackets.Request.class, AtlasMapPackets.Request::new,
-                (packet, player) -> AtlasMapBackend.request(player, packet));
-        CHANNEL.clientbound("selection", AtlasPackets.Selection.class, AtlasPackets.Selection::new,
-                AtlasClientPacketHandlers::selection);
-        CHANNEL.clientbound("region", AtlasPackets.Region.class, AtlasPackets.Region::new,
-                AtlasClientPacketHandlers::region);
-        CHANNEL.clientbound("ready", AtlasPackets.Ready.class, AtlasPackets.Ready::new,
-                AtlasClientPacketHandlers::ready);
-        CHANNEL.clientbound("marker", AtlasPackets.Marker.class, AtlasPackets.Marker::new,
-                AtlasClientPacketHandlers::marker);
-        CHANNEL.clientbound("carried", AtlasPackets.Carried.class, AtlasPackets.Carried::new,
-                AtlasClientPacketHandlers::carried);
-        CHANNEL.clientbound("map_world", AtlasMapPackets.World.class, AtlasMapPackets.World::new,
-                (packet, player) -> net.syrupstudios.atlasbound.client.AtlasMapClient.world(packet));
-        CHANNEL.clientbound("map_chunk", AtlasMapPackets.Chunk.class, AtlasMapPackets.Chunk::new,
-                (packet, player) -> net.syrupstudios.atlasbound.client.AtlasMapClient.receive(packet));
+        CHANNEL.serverbound("open", AtlasPackets.Open.class, AtlasPackets.Open::write, AtlasPackets.Open::new,
+                (packet, level, player) -> openPacket(packet, (ServerPlayer) player));
+        CHANNEL.serverbound("close", AtlasPackets.Close.class, AtlasPackets.Close::write, AtlasPackets.Close::new,
+                (packet, level, player) -> closePacket(packet, (ServerPlayer) player));
+        CHANNEL.serverbound("marker_edit", AtlasPackets.MarkerEdit.class, AtlasPackets.MarkerEdit::write,
+                AtlasPackets.MarkerEdit::new, (packet, level, player) -> markerEditPacket(packet, (ServerPlayer) player));
+        CHANNEL.serverbound("teleport", AtlasPackets.Teleport.class, AtlasPackets.Teleport::write,
+                AtlasPackets.Teleport::new, (packet, level, player) -> teleportPacket(packet, (ServerPlayer) player));
+        CHANNEL.serverbound("map_request", AtlasMapPackets.Request.class, AtlasMapPackets.Request::write,
+                AtlasMapPackets.Request::new, (packet, level, player) -> AtlasMapBackend.request((ServerPlayer) player, packet));
+        CHANNEL.clientbound("selection", AtlasPackets.Selection.class, AtlasPackets.Selection::write,
+                AtlasPackets.Selection::new, (packet, level, player) -> AtlasClientPacketHandlers.selection(packet, player));
+        CHANNEL.clientbound("region", AtlasPackets.Region.class, AtlasPackets.Region::write,
+                AtlasPackets.Region::new, (packet, level, player) -> AtlasClientPacketHandlers.region(packet, player));
+        CHANNEL.clientbound("ready", AtlasPackets.Ready.class, AtlasPackets.Ready::write,
+                AtlasPackets.Ready::new, (packet, level, player) -> AtlasClientPacketHandlers.ready(packet, player));
+        CHANNEL.clientbound("marker", AtlasPackets.Marker.class, AtlasPackets.Marker::write,
+                AtlasPackets.Marker::new, (packet, level, player) -> AtlasClientPacketHandlers.marker(packet, player));
+        CHANNEL.clientbound("carried", AtlasPackets.Carried.class, AtlasPackets.Carried::write,
+                AtlasPackets.Carried::new, (packet, level, player) -> AtlasClientPacketHandlers.carried(packet, player));
+        CHANNEL.clientbound("map_world", AtlasMapPackets.World.class, AtlasMapPackets.World::write,
+                AtlasMapPackets.World::new, (packet, level, player) -> net.syrupstudios.atlasbound.client.AtlasMapClient.world(packet));
+        CHANNEL.clientbound("map_chunk", AtlasMapPackets.Chunk.class, AtlasMapPackets.Chunk::write,
+                AtlasMapPackets.Chunk::new, (packet, level, player) -> net.syrupstudios.atlasbound.client.AtlasMapClient.receive(packet));
         AtlasManager.setTransport(new AtlasManager.Transport() {
             @Override
             public void selection(ServerPlayer player, UUID atlasId, AtlasData data, boolean openScreen) {

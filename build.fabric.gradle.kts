@@ -29,12 +29,9 @@ dependencies {
     include("com.electronwill.night-config:toml:3.8.3")
 
     modCompileOnly("dev.emi:trinkets:${property("deps.trinkets")}")
-    val rosetta = "net.rasanovum.rosetta:rosetta-1.21.1-fabric:${property("deps.rosetta")}" 
-    val rosettaNetworking = "net.rasanovum.rosetta:rosetta-networking-1.21.1-fabric:${property("deps.rosetta_networking")}" 
+    val rosetta = "com.rasanovum.rosetta:rosetta-1.21.1-fabric:${property("deps.rosetta")}"
     modImplementation(rosetta)
     include(rosetta)
-    modImplementation(rosettaNetworking)
-    include(rosettaNetworking)
 }
 
 loom {
@@ -74,7 +71,6 @@ tasks.processResources {
         "fl" to project.property("deps.fabric_loader"),
         "fapi" to project.property("deps.fabric_api"),
         "rosetta" to project.property("deps.rosetta"),
-        "rosettaNetworking" to project.property("deps.rosetta_networking"),
         "syrupLibrary" to project.property("deps.syrup_library"),
         "authors" to (project.property("mod.authors") as String).split(", ").joinToString("\",\n\t\t\""),
         "contributors" to (project.property("mod.contributors") as String).split(", ").joinToString("\",\n\t\t\""),

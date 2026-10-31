@@ -35,14 +35,7 @@ side = "BOTH"
 [[dependencies.${ modId }]]
 modId = "rosetta_library"
 type = "required"
-versionRange = "[${rosetta},)"
-ordering = "AFTER"
-side = "BOTH"
-
-[[dependencies.${ modId }]]
-modId = "rosetta_networking"
-type = "required"
-versionRange = "[${rosettaNetworking},)"
+versionRange = "[${rosetta},0.2.0)"
 ordering = "AFTER"
 side = "BOTH"
 

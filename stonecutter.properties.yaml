@@ -24,15 +24,13 @@ mod:
       fabric_api: "0.116.15+1.21.1"
       trinkets: "3.10.0"
       curios: "9.5.1+1.21.1"
-      rosetta_networking: "0.2.0"
   neoforge:
     deps:
       neoforge: "21.1.209"
       trinkets: "3.10.0"
       curios: "9.5.1+1.21.1"
-      rosetta_networking: "0.2.0"
   deps:
-    rosetta: "0.2.0"
+    rosetta: "0.1.1"
     syrup_library: "0.5.1"
 
 loomx.loom_version: "1.17.14"

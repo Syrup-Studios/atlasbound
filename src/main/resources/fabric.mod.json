@@ -25,8 +25,7 @@
 		"minecraft": "${mc}",
 		"fabricloader": ">=${fl}",
 		"fabric-api": ">=${fapi}",
-		"rosetta_library": ">=${rosetta}",
-		"rosetta_networking": ">=${rosettaNetworking}",
+		"rosetta_library": ">=${rosetta} <0.2.0",
 		"syrup_library": ">=${syrupLibrary}"
 	},
 	"entrypoints": {

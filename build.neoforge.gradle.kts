@@ -22,19 +22,11 @@ dependencies {
     compileOnly("de.marhali:json5-java:3.0.0")
     compileOnly("com.electronwill.night-config:toml:3.8.3")
     val rosettaVersion = property("deps.rosetta") as String
-    val rosettaNetworkingVersion = property("deps.rosetta_networking") as String
-    implementation("net.rasanovum.rosetta:rosetta-1.21.1-neoforge:$rosettaVersion")
-    jarJar("net.rasanovum.rosetta:rosetta-1.21.1-neoforge:$rosettaVersion") {
+    implementation("com.rasanovum.rosetta:rosetta-1.21.1-neoforge:$rosettaVersion")
+    jarJar("com.rasanovum.rosetta:rosetta-1.21.1-neoforge:$rosettaVersion") {
         version {
-            strictly("[$rosettaVersion,)")
+            strictly("[$rosettaVersion,0.2.0)")
             prefer(rosettaVersion)
-        }
-    }
-    implementation("net.rasanovum.rosetta:rosetta-networking-1.21.1-neoforge:$rosettaNetworkingVersion")
-    jarJar("net.rasanovum.rosetta:rosetta-networking-1.21.1-neoforge:$rosettaNetworkingVersion") {
-        version {
-            strictly("[$rosettaNetworkingVersion,)")
-            prefer(rosettaNetworkingVersion)
         }
     }
     compileOnly("top.theillusivec4.curios:curios-neoforge:${property("deps.curios")}:api") {
@@ -85,7 +77,6 @@ tasks.processResources {
         "sources" to project.property("mod.sources"),
         "neoforge" to project.property("deps.neoforge"),
         "rosetta" to project.property("deps.rosetta"),
-        "rosettaNetworking" to project.property("deps.rosetta_networking"),
         "syrupLibrary" to project.property("deps.syrup_library"),
     )
     inputs.properties(values)
