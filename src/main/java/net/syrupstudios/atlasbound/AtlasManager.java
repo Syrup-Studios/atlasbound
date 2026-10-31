@@ -35,7 +35,7 @@ public final class AtlasManager {
         if (id == null) return false;
         AtlasData data;
         try {
-            data = AtlasStorage.get(player.getServer(), id);
+            data = AtlasStorage.get(player.getServer(), id, player.getUUID());
         } catch (IllegalStateException exception) {
             return false;
         }
@@ -127,7 +127,7 @@ public final class AtlasManager {
             VIEWS.put(player.getUUID(), view);
             Atlasbound.LOGGER.debug("Selected atlas {} for {}", selected, player.getGameProfile().getName());
             try {
-                transport.selection(player, selected, AtlasStorage.get(player.getServer(), selected), open);
+                transport.selection(player, selected, AtlasStorage.get(player.getServer(), selected, player.getUUID()), open);
             } catch (IllegalStateException ignored) {
                 VIEWS.remove(player.getUUID());
                 transport.selection(player, null, null, false);
@@ -154,7 +154,7 @@ public final class AtlasManager {
         if (id == null || !carried.add(id)) return;
         if (initialized) return;
         try {
-            AtlasStorage.get(player.getServer(), id);
+            AtlasStorage.get(player.getServer(), id, player.getUUID());
         } catch (IllegalStateException ignored) {
             // Invalid atlas data stays disabled; other inventory items can still work.
         }
@@ -175,7 +175,7 @@ public final class AtlasManager {
         UUID id = AtlasItemData.ensureId(player, stack).orElse(null);
         if (id == null || atlases.containsKey(id)) return;
         try {
-            atlases.put(id, AtlasStorage.get(server, id));
+            atlases.put(id, AtlasStorage.get(server, id, player.getUUID()));
         } catch (IllegalStateException ignored) {
             // One invalid atlas must not block discovery for other carried atlases.
         }

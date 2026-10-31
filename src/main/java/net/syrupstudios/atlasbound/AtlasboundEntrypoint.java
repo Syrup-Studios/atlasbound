@@ -10,6 +10,10 @@ public final class AtlasboundEntrypoint implements RosettaCommonEntrypoint {
     @Override
     public ServerHooks.Callbacks serverHooks() {
         return new ServerHooks.Callbacks() {
+            @Override public void onServerStarted(net.minecraft.server.MinecraftServer server) {
+                AtlasStorage.serverStarting(server);
+            }
+
             @Override public void onPlayerLeave(net.minecraft.server.level.ServerPlayer player) {
                 AtlasNetworking.disconnect(player);
             }

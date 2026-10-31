@@ -370,7 +370,7 @@ public final class AtlasMapBackend {
         if (!AtlasNetworking.mapRequestValid(player, epoch)) return false;
         UUID atlas = AtlasManager.selected(player);
         if (atlas == null) return false;
-        try { return AtlasStorage.get(player.getServer(), atlas).allows(dimension, new ChunkPos(x, z)); }
+        try { return AtlasStorage.get(player.getServer(), atlas, player.getUUID()).allows(dimension, new ChunkPos(x, z)); }
         catch (IllegalStateException invalidAtlas) { return false; }
     }
 

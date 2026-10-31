@@ -13,10 +13,11 @@ import net.rasanovum.rosetta.nbt.NbtCompat;
 
 /** Server-owned exploration data, keyed by atlas identity. */
 public final class AtlasData extends SavedData {
-    private static final int SCHEMA = 2;
+    private static final int SCHEMA = 3;
     private static final int REGION_BITS = 1024;
     private final Map<ResourceLocation, Map<Long, BitSet>> explored = new HashMap<>();
     private final Map<ResourceLocation, Map<ResourceLocation, AtlasMarker>> markers = new HashMap<>();
+    private boolean legacySurveyorImported = true;
 
     public static final Factory<AtlasData> FACTORY = new Factory<>(AtlasData::new, AtlasData::load, null);
 
@@ -62,6 +63,7 @@ public final class AtlasData extends SavedData {
             markerDimensions.put(dimension.toString(), markerTags);
         });
         root.put("markers", markerDimensions);
+        root.putBoolean("legacy_surveyor_imported", legacySurveyorImported);
         return root;
     }
 
@@ -70,9 +72,10 @@ public final class AtlasData extends SavedData {
             throw new IllegalStateException("Invalid Atlasbound saved data root; refusing to replace it");
         }
         int schema = NbtCompat.getInt(root, "schema", 0);
-        if (schema != 1 && schema != SCHEMA)
+        if (schema < 1 || schema > SCHEMA)
             throw new IllegalStateException("Invalid Atlasbound saved data root; refusing to replace it");
         AtlasData data = new AtlasData();
+        data.legacySurveyorImported = schema == SCHEMA && root.getBoolean("legacy_surveyor_imported");
         CompoundTag dimensions = NbtCompat.getCompound(root, "dimensions");
         for (String dimensionKey : NbtCompat.getAllKeys(dimensions)) {
             ResourceLocation dimension = ResourceLocation.tryParse(dimensionKey);
@@ -96,7 +99,7 @@ public final class AtlasData extends SavedData {
             }
             if (!validRegions.isEmpty()) data.explored.put(dimension, validRegions);
         }
-        if (schema == SCHEMA) {
+        if (schema >= 2) {
             if (!root.contains("markers", CompoundTag.TAG_COMPOUND))
                 throw new IllegalStateException("Invalid Atlasbound markers root");
             CompoundTag markerDimensions = NbtCompat.getCompound(root, "markers");
@@ -123,6 +126,36 @@ public final class AtlasData extends SavedData {
         int regionCount = data.explored.values().stream().mapToInt(Map::size).sum();
         Atlasbound.LOGGER.debug("Loaded atlas data: {} dimensions, {} regions", data.explored.size(), regionCount);
         return data;
+    }
+
+    public boolean legacySurveyorImported() {
+        return legacySurveyorImported;
+    }
+
+    public void importLegacySurveyor(Map<ResourceLocation, Map<Long, BitSet>> regions,
+            Map<ResourceLocation, java.util.List<AtlasMarker>> importedMarkers) {
+        if (legacySurveyorImported) return;
+        int additions = 0;
+        for (var dimension : importedMarkers.entrySet()) {
+            Map<ResourceLocation, AtlasMarker> existing = markers.getOrDefault(dimension.getKey(), Map.of());
+            java.util.Set<ResourceLocation> ids = new java.util.HashSet<>(existing.keySet());
+            for (AtlasMarker marker : dimension.getValue()) if (ids.add(marker.id())) additions++;
+        }
+        if (markerCount() + additions > AtlasMarker.MAX_MARKERS)
+            throw new IllegalStateException("Surveyor markers exceed Atlasbound marker limit");
+        regions.forEach((dimension, source) -> source.forEach((region, bits) -> {
+            if (bits.length() > REGION_BITS) throw new IllegalArgumentException("Surveyor region exceeds 1024 bits");
+        }));
+        regions.forEach((dimension, source) -> source.forEach((region, bits) -> {
+            explored.computeIfAbsent(dimension, ignored -> new HashMap<>())
+                    .computeIfAbsent(region, ignored -> new BitSet(REGION_BITS)).or(bits);
+        }));
+        importedMarkers.forEach((dimension, source) -> source.forEach(marker -> {
+            Map<ResourceLocation, AtlasMarker> entries = markers.computeIfAbsent(dimension, ignored -> new HashMap<>());
+            entries.putIfAbsent(marker.id(), marker);
+        }));
+        legacySurveyorImported = true;
+        setDirty();
     }
 
     public Map<ResourceLocation, Map<Long, BitSet>> dimensions() {

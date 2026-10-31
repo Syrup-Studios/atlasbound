@@ -261,7 +261,7 @@ public final class AtlasNetworking {
 
         AtlasData data;
         try {
-            data = AtlasStorage.get(player.getServer(), atlas);
+            data = AtlasStorage.get(player.getServer(), atlas, player.getUUID());
         } catch (IllegalStateException exception) {
             Atlasbound.LOGGER.debug("Rejected marker edit for invalid atlas {}", atlas);
             return;

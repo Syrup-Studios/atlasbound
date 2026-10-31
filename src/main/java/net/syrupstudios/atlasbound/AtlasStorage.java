@@ -5,6 +5,7 @@ import java.util.Set;
 import java.util.WeakHashMap;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashSet;
 
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.level.storage.LevelResource;
@@ -35,7 +36,35 @@ public final class AtlasStorage {
         }
     }
 
+    public static AtlasData get(MinecraftServer server, UUID id, UUID holder) {
+        AtlasData data = get(server, id);
+        if (holder != null) LegacySurveyorMigration.importFor(server, id, holder, data);
+        return data;
+    }
+
+    public static void serverStarting(MinecraftServer server) {
+        Path data = server.getWorldPath(LevelResource.ROOT).resolve("data");
+        Set<UUID> existingAtlases = new HashSet<>();
+        if (Files.exists(data)) {
+            try (var files = Files.list(data)) {
+                files.map(path -> path.getFileName().toString())
+                        .filter(name -> name.startsWith(Atlasbound.MOD_ID + "_") && name.endsWith(".dat"))
+                        .forEach(name -> {
+                            String value = name.substring((Atlasbound.MOD_ID + "_").length(), name.length() - 4);
+                            try {
+                                UUID id = UUID.fromString(value);
+                                if (id.toString().equals(value)) existingAtlases.add(id);
+                            } catch (IllegalArgumentException ignored) {}
+                        });
+            } catch (Exception exception) {
+                throw new IllegalStateException("Could not scan saved atlases before Surveyor migration", exception);
+            }
+        }
+        LegacySurveyorMigration.capture(server, existingAtlases);
+    }
+
     public static void clear(MinecraftServer server) {
         DISABLED.remove(server);
+        LegacySurveyorMigration.clear(server);
     }
 }
