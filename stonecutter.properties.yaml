@@ -2,7 +2,7 @@ mod:
   id: "atlasbound"
   name: "Atlasbound"
   group: "net.syrupstudios"
-  version: "0.4.0"
+  version: "0.4.1"
   description: "Independent Antique Atlas 4 fork with server-owned, per-atlas exploration."
   authors: "SodaSyrup, Hunternif, tyra314, Sisby folk"
   contributors: "Kenkron, asiekierka, Haven King, TheCodeWarrior, osipxd, coolAlias, TehNut, lumiscosity, frodolon"
