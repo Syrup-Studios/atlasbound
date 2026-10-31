@@ -21,8 +21,22 @@ dependencies {
     implementation("net.syrupstudios:syrup_library:$syrupLibraryVersion")
     compileOnly("de.marhali:json5-java:3.0.0")
     compileOnly("com.electronwill.night-config:toml:3.8.3")
-    implementation("net.rasanovum.rosetta:rosetta-1.21.1-neoforge:${property("deps.rosetta")}")
-    implementation("net.rasanovum.rosetta:rosetta-networking-1.21.1-neoforge:${property("deps.rosetta_networking")}")
+    val rosettaVersion = property("deps.rosetta") as String
+    val rosettaNetworkingVersion = property("deps.rosetta_networking") as String
+    implementation("net.rasanovum.rosetta:rosetta-1.21.1-neoforge:$rosettaVersion")
+    jarJar("net.rasanovum.rosetta:rosetta-1.21.1-neoforge:$rosettaVersion") {
+        version {
+            strictly("[$rosettaVersion,)")
+            prefer(rosettaVersion)
+        }
+    }
+    implementation("net.rasanovum.rosetta:rosetta-networking-1.21.1-neoforge:$rosettaNetworkingVersion")
+    jarJar("net.rasanovum.rosetta:rosetta-networking-1.21.1-neoforge:$rosettaNetworkingVersion") {
+        version {
+            strictly("[$rosettaNetworkingVersion,)")
+            prefer(rosettaNetworkingVersion)
+        }
+    }
     compileOnly("top.theillusivec4.curios:curios-neoforge:${property("deps.curios")}:api") {
         isTransitive = false
     }
