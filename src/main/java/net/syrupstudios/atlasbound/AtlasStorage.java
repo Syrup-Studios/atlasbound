@@ -57,10 +57,14 @@ public final class AtlasStorage {
                             } catch (IllegalArgumentException ignored) {}
                         });
             } catch (Exception exception) {
-                throw new IllegalStateException("Could not scan saved atlases before Surveyor migration", exception);
+                Atlasbound.LOGGER.warn("Could not scan all saved atlases before Surveyor migration; migration will use the atlases found", exception);
             }
         }
-        LegacySurveyorMigration.capture(server, existingAtlases);
+        try {
+            LegacySurveyorMigration.capture(server, existingAtlases);
+        } catch (Exception exception) {
+            Atlasbound.LOGGER.warn("Could not capture Surveyor migration data; server startup will continue without some legacy data", exception);
+        }
     }
 
     public static void clear(MinecraftServer server) {

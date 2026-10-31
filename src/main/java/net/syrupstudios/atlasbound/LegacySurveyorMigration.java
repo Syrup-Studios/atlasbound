@@ -32,6 +32,7 @@ final class LegacySurveyorMigration {
     private static final long MAX_SOURCE_NBT_BYTES = 64L * 1024 * 1024;
     private static final String SNAPSHOT_DIR = "atlasbound-surveyor-migration";
     private static final Map<MinecraftServer, Snapshot> SNAPSHOTS = new java.util.WeakHashMap<>();
+    private static final Set<String> WARNED_SKIPS = java.util.concurrent.ConcurrentHashMap.newKeySet();
 
     private LegacySurveyorMigration() {}
 
@@ -74,12 +75,18 @@ final class LegacySurveyorMigration {
                     Path snapshot = playerSnapshots.resolve(player + ".dat");
                     try {
                         if (Files.exists(snapshot)) {
-                            exploration.put(player, read(snapshot));
-                            return;
+                            try {
+                                exploration.put(player, read(snapshot));
+                                return;
+                            } catch (Exception exception) {
+                                warnSkip("player-snapshot:" + player, "Could not read Surveyor migration snapshot for {}; trying playerdata", player);
+                            }
                         }
                         CompoundTag rootTag = read(path);
-                        if (rootTag.contains("surveyor", CompoundTag.TAG_COMPOUND))
-                            exploration.put(player, readOrCreateSnapshot(playerSnapshots, snapshot, NbtCompat.getCompound(rootTag, "surveyor")));
+                        if (rootTag.contains("surveyor", CompoundTag.TAG_COMPOUND)) {
+                            CompoundTag surveyor = NbtCompat.getCompound(rootTag, "surveyor");
+                            exploration.put(player, Files.exists(snapshot) ? surveyor.copy() : readOrCreateSnapshot(playerSnapshots, snapshot, surveyor));
+                        }
                     } catch (Exception exception) {
                         playerErrors.put(player, exception.toString());
                     }
@@ -121,11 +128,11 @@ final class LegacySurveyorMigration {
                             || !saved.contains("data", CompoundTag.TAG_COMPOUND))
                         throw new IllegalStateException("Invalid Surveyor landmark snapshot for " + id);
                     landmarks.put(id, NbtCompat.getCompound(saved, "data"));
+                    continue;
                 } catch (Exception exception) {
                     landmarkErrors.add(id);
-                    Atlasbound.LOGGER.error("Could not read saved Surveyor landmark snapshot for {}", id, exception);
+                    Atlasbound.LOGGER.warn("Could not read saved Surveyor landmark snapshot for {}; trying the original source", id, exception);
                 }
-                continue;
             }
             Path file = DimensionType.getStorageFolder(dimension, root).resolve("data/surveyor/landmarks.dat");
             if (!Files.exists(file)) continue;
@@ -133,16 +140,18 @@ final class LegacySurveyorMigration {
                 CompoundTag saved = new CompoundTag();
                 saved.putString("dimension", id.toString());
                 saved.put("data", read(file));
-                writeSnapshot(dimensionSnapshots, snapshot, saved);
                 landmarks.put(id, NbtCompat.getCompound(saved, "data"));
+                try {
+                    writeSnapshot(dimensionSnapshots, snapshot, saved);
+                } catch (IOException exception) {
+                    Atlasbound.LOGGER.warn("Could not save Surveyor migration snapshot {}; using source data in memory until restart", snapshot, exception);
+                }
             } catch (Exception exception) {
                 landmarkErrors.add(id);
                 Atlasbound.LOGGER.error("Could not read Surveyor landmarks for {} before migration", id, exception);
             }
         }
         Snapshot snapshot = new Snapshot(Set.copyOf(atlasIds), exploration, playerErrors, landmarks, landmarkErrors, sourceError, new HashSet<>());
-        if (sourceError != null || !playerErrors.isEmpty() || !landmarkErrors.isEmpty())
-            throw new IllegalStateException("Could not preserve all Surveyor source data before player login");
         SNAPSHOTS.put(server, snapshot);
     }
 
@@ -153,22 +162,29 @@ final class LegacySurveyorMigration {
         if (snapshot == null || !snapshot.atlasIds.contains(atlas) || data.legacySurveyorImported()) return true;
         ImportKey key = new ImportKey(atlas, holder);
         if (snapshot.failedImports.contains(key)) return false;
-        if (snapshot.sourceError != null) {
-            return fail(snapshot, key, "Surveyor data for {} was not imported into atlas {}; source data could not be read: " + snapshot.sourceError, null);
-        }
         String playerError = snapshot.playerErrors.get(holder);
+        Map<ResourceLocation, Map<Long, BitSet>> regions = Map.of();
         if (playerError != null) {
-            return fail(snapshot, key, "Surveyor data for {} was not imported into atlas {}; its playerdata record could not be read: " + playerError, null);
+            warnSkip("playerdata:" + holder, "Could not read Surveyor playerdata for {}; importing available landmarks without exploration", holder);
+        } else {
+            try {
+                regions = exploration(snapshot.exploration.get(holder));
+            } catch (RuntimeException exception) {
+                warnSkip("player-exploration:" + holder, "Could not read Surveyor exploration for {}; importing available landmarks", holder);
+            }
         }
         try {
-            Map<ResourceLocation, Map<Long, BitSet>> regions = exploration(snapshot.exploration.get(holder));
             Map<ResourceLocation, List<AtlasMarker>> markers = new HashMap<>();
-            if (!snapshot.landmarkErrors.isEmpty())
-                return fail(snapshot, key, "Surveyor data for {} was not imported into atlas {}; landmark sources could not be read", null);
             for (var entry : snapshot.landmarks.entrySet()) {
-                markers.put(entry.getKey(), landmarks(entry.getValue(), holder));
+                try {
+                    markers.put(entry.getKey(), landmarks(entry.getValue(), holder));
+                } catch (RuntimeException exception) {
+                    warnSkip("landmark-parse", "Skipped one or more invalid Surveyor landmark records");
+                }
             }
-            data.importLegacySurveyor(regions, markers);
+            int skippedMarkers = data.importLegacySurveyor(regions, markers);
+            if (skippedMarkers > 0)
+                Atlasbound.LOGGER.warn("Skipped {} Surveyor markers while importing into atlas {} because its marker limit was reached", skippedMarkers, atlas);
             Atlasbound.LOGGER.info("Imported Surveyor data for {} into existing atlas {}", holder, atlas);
             return true;
         } catch (RuntimeException exception) {
@@ -188,9 +204,17 @@ final class LegacySurveyorMigration {
         return NbtIo.readCompressed(path, NbtAccounter.create(MAX_SOURCE_NBT_BYTES));
     }
 
+    private static void warnSkip(String key, String message, Object... arguments) {
+        if (WARNED_SKIPS.add(key)) Atlasbound.LOGGER.warn(message, arguments);
+    }
+
     private static CompoundTag readOrCreateSnapshot(Path directory, Path snapshot, CompoundTag data) throws IOException {
         if (Files.exists(snapshot)) return read(snapshot);
-        writeSnapshot(directory, snapshot, data.copy());
+        try {
+            writeSnapshot(directory, snapshot, data.copy());
+        } catch (IOException exception) {
+            Atlasbound.LOGGER.warn("Could not save Surveyor migration snapshot {}; using source data in memory until restart", snapshot, exception);
+        }
         return data.copy();
     }
 
@@ -216,24 +240,34 @@ final class LegacySurveyorMigration {
         CompoundTag dimensions = NbtCompat.getCompound(surveyor, "exploredTerrain");
         for (String dimensionKey : NbtCompat.getAllKeys(dimensions)) {
             ResourceLocation dimension = ResourceLocation.tryParse(dimensionKey);
-            if (dimension == null || !dimensions.contains(dimensionKey, CompoundTag.TAG_LONG_ARRAY))
-                throw new IllegalStateException("Invalid Surveyor exploration dimension: " + dimensionKey);
+            if (dimension == null || !dimensions.contains(dimensionKey, CompoundTag.TAG_LONG_ARRAY)) {
+                warnSkip("exploration-dimension", "Skipped one or more invalid Surveyor exploration dimensions");
+                continue;
+            }
             long[] data = NbtCompat.getLongArray(dimensions, dimensionKey);
             Map<Long, BitSet> regions = new HashMap<>();
+            boolean warned = false;
             for (int i = 0; i < data.length;) {
-                if (i + 1 >= data.length) throw new IllegalStateException("Truncated Surveyor region data");
-                long region = data[i++];
-                int length = Math.toIntExact(data[i++]);
-                BitSet bits = new BitSet(1024);
-                if (length == -1) bits.set(0, 1024);
-                else {
-                    if (length < 0 || length > 16 || i + length > data.length)
-                        throw new IllegalStateException("Invalid Surveyor region bit length");
-                    bits = BitSet.valueOf(java.util.Arrays.copyOfRange(data, i, i + length));
-                    if (bits.length() > 1024) throw new IllegalStateException("Surveyor region exceeds 1024 chunks");
-                    i += length;
+                int start = i;
+                try {
+                    if (i + 1 >= data.length) throw new IllegalStateException();
+                    long region = data[i++];
+                    int length = Math.toIntExact(data[i++]);
+                    BitSet bits = new BitSet(1024);
+                    if (length == -1) bits.set(0, 1024);
+                    else {
+                        if (length < 0 || length > 16 || i + length > data.length) throw new IllegalStateException();
+                        bits = BitSet.valueOf(java.util.Arrays.copyOfRange(data, i, i + length));
+                        if (bits.length() > 1024) throw new IllegalStateException();
+                        i += length;
+                    }
+                    if (regions.containsKey(region)) throw new IllegalStateException();
+                    regions.put(region, bits);
+                } catch (RuntimeException exception) {
+                    if (!warned) warnSkip("exploration-region", "Skipped malformed Surveyor region data in dimension {} from record {} onward", dimension, start);
+                    warned = true;
+                    break;
                 }
-                if (regions.put(region, bits) != null) throw new IllegalStateException("Duplicate Surveyor region");
             }
             if (!regions.isEmpty()) out.put(dimension, regions);
         }
@@ -247,18 +281,16 @@ final class LegacySurveyorMigration {
         for (String ownerKey : NbtCompat.getAllKeys(owners)) {
             UUID owner;
             try { owner = UUID.fromString(ownerKey); }
-            catch (IllegalArgumentException exception) { throw new IllegalStateException("Invalid Surveyor landmark owner", exception); }
-            if (!owner.toString().equals(ownerKey)) throw new IllegalStateException("Non-canonical Surveyor landmark owner");
+            catch (IllegalArgumentException exception) { warnSkip("landmark-owner", "Skipped one or more invalid Surveyor landmark owners"); continue; }
+            if (!owner.toString().equals(ownerKey)) { warnSkip("landmark-owner", "Skipped one or more invalid Surveyor landmark owners"); continue; }
             if (!owner.equals(holder) && !owner.equals(new UUID(-7378697629483820647L, -7378697629483820647L))) continue;
-            if (!owners.contains(ownerKey, CompoundTag.TAG_COMPOUND))
-                throw new IllegalStateException("Invalid Surveyor landmark owner record");
+            if (!owners.contains(ownerKey, CompoundTag.TAG_COMPOUND)) { warnSkip("landmark-owner-record", "Skipped one or more invalid Surveyor landmark owner records"); continue; }
             CompoundTag entries = NbtCompat.getCompound(owners, ownerKey);
             for (String markerKey : NbtCompat.getAllKeys(entries)) {
-                if (!entries.contains(markerKey, CompoundTag.TAG_COMPOUND))
-                    throw new IllegalStateException("Invalid Surveyor landmark record: " + markerKey);
+                try {
+                if (!entries.contains(markerKey, CompoundTag.TAG_COMPOUND)) throw new IllegalStateException();
                 CompoundTag marker = NbtCompat.getCompound(entries, markerKey);
-                if (!marker.contains("components", CompoundTag.TAG_COMPOUND))
-                    throw new IllegalStateException("Invalid Surveyor landmark components: " + markerKey);
+                if (!marker.contains("components", CompoundTag.TAG_COMPOUND)) throw new IllegalStateException();
                 CompoundTag components = NbtCompat.getCompound(marker, "components");
                 if (!components.contains("surveyor:pos")) continue;
                 BlockPos pos = BlockPos.CODEC.parse(NbtOps.INSTANCE, components.get("surveyor:pos"))
@@ -274,6 +306,9 @@ final class LegacySurveyorMigration {
                 String identity = owner + ":" + markerKey;
                 ResourceLocation id = ResourceLocation.fromNamespaceAndPath("atlasbound", "custom/surveyor/" + UUID.nameUUIDFromBytes(identity.getBytes(StandardCharsets.UTF_8)));
                 out.add(new AtlasMarker(id, pos, name.length() > AtlasMarker.MAX_NAME_LENGTH ? name.substring(0, AtlasMarker.MAX_NAME_LENGTH) : name, color));
+                } catch (RuntimeException exception) {
+                    warnSkip("landmark-record", "Skipped one or more invalid Surveyor landmarks");
+                }
             }
         }
         return out;

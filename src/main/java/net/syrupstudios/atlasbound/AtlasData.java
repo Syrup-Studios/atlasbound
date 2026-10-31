@@ -132,17 +132,9 @@ public final class AtlasData extends SavedData {
         return legacySurveyorImported;
     }
 
-    public void importLegacySurveyor(Map<ResourceLocation, Map<Long, BitSet>> regions,
+    public int importLegacySurveyor(Map<ResourceLocation, Map<Long, BitSet>> regions,
             Map<ResourceLocation, java.util.List<AtlasMarker>> importedMarkers) {
-        if (legacySurveyorImported) return;
-        int additions = 0;
-        for (var dimension : importedMarkers.entrySet()) {
-            Map<ResourceLocation, AtlasMarker> existing = markers.getOrDefault(dimension.getKey(), Map.of());
-            java.util.Set<ResourceLocation> ids = new java.util.HashSet<>(existing.keySet());
-            for (AtlasMarker marker : dimension.getValue()) if (ids.add(marker.id())) additions++;
-        }
-        if (markerCount() + additions > AtlasMarker.MAX_MARKERS)
-            throw new IllegalStateException("Surveyor markers exceed Atlasbound marker limit");
+        if (legacySurveyorImported) return 0;
         regions.forEach((dimension, source) -> source.forEach((region, bits) -> {
             if (bits.length() > REGION_BITS) throw new IllegalArgumentException("Surveyor region exceeds 1024 bits");
         }));
@@ -150,12 +142,22 @@ public final class AtlasData extends SavedData {
             explored.computeIfAbsent(dimension, ignored -> new HashMap<>())
                     .computeIfAbsent(region, ignored -> new BitSet(REGION_BITS)).or(bits);
         }));
-        importedMarkers.forEach((dimension, source) -> source.forEach(marker -> {
-            Map<ResourceLocation, AtlasMarker> entries = markers.computeIfAbsent(dimension, ignored -> new HashMap<>());
-            entries.putIfAbsent(marker.id(), marker);
-        }));
+        int remainingMarkers = Math.max(0, AtlasMarker.MAX_MARKERS - markerCount());
+        int skippedMarkers = 0;
+        for (var dimension : importedMarkers.entrySet()) for (AtlasMarker marker : dimension.getValue()) {
+            Map<ResourceLocation, AtlasMarker> entries = markers.computeIfAbsent(dimension.getKey(), ignored -> new HashMap<>());
+            if (!entries.containsKey(marker.id())) {
+                if (remainingMarkers > 0) {
+                    entries.put(marker.id(), marker);
+                    remainingMarkers--;
+                } else {
+                    skippedMarkers++;
+                }
+            }
+        }
         legacySurveyorImported = true;
         setDirty();
+        return skippedMarkers;
     }
 
     public Map<ResourceLocation, Map<Long, BitSet>> dimensions() {
